@@ -11,8 +11,8 @@
 
 class IMAPCommandFactory {
 public:
-    static std::unique_ptr<IMAPCommand> createLoginCommand(const std::string& user, const std::string& pass) {
-        return std::make_unique<LoginCommand>(user, pass);
+    static std::unique_ptr<IMAPCommand> createLoginCommand(const std::string& user, const std::string& server, const std::string& pass) {
+        return std::make_unique<LoginCommand>(user, server, pass);
     }
 
     static std::unique_ptr<IMAPCommand> createFetchCommand(const std::string& mailbox) {

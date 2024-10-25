@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
         IMAPClient client(config.server, config.port);
         client.connect();
 
-        auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.password);
+        auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
 
         client.sendCommand(*loginCommand);
 

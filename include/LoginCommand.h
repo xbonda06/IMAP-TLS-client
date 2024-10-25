@@ -10,14 +10,15 @@
 
 class LoginCommand : public IMAPCommand {
     std::string username;
+    std::string server;
     std::string password;
 
 public:
-    LoginCommand(const std::string& user, const std::string& pass)
-            : username(user), password(pass) {}
+    LoginCommand(const std::string& user, const std::string& server, const std::string& pass)
+            : username(user), server(server), password(pass) {}
 
     std::string generate() const override {
-        return "LOGIN " + username + " " + password + "\r\n";
+        return "LOGIN " + username + "@" + server + " " + password + "\r\n";
     }
 };
 
