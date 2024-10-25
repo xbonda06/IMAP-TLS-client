@@ -85,19 +85,23 @@ ArgParser::Config ArgParser::parse(int argc, char* argv[]){
 std::pair<std::string, std::string> ArgParser::readAuthFile(const std::string &authFilePath) {
     std::ifstream authFile(authFilePath);
     if (!authFile.is_open()) {
-        throw std::runtime_error("Open auth file failed");
+        throw std::runtime_error("Failed to open auth file");
     }
 
-    std::string username, password, line;
+    std::string line, username, password;
     if (std::getline(authFile, line)) {
         std::istringstream iss(line);
         std::string key, value;
 
-        if (std::getline(iss, key, '=') && key.find("username") != std::string::npos) {
-            if (iss >> username >> key && key == "password" && iss >> password) {
-                return {username, password};
-            }
+        if (!(iss >> key) || key != "username" || !(iss >> key) || key != "=" || !(iss >> username)) {
+            throw std::runtime_error("Incorrect username format in auth file");
         }
+
+        if (!(iss >> key) || key != "password" || !(iss >> key) || key != "=" || !(iss >> password)) {
+            throw std::runtime_error("Incorrect password format in auth file");
+        }
+
+        return {username, password};
     }
 
     throw std::runtime_error("Bad auth file format");
