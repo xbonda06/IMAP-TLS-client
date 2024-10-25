@@ -40,3 +40,20 @@ void IMAPClient::createTCPConnetction() {
         throw std::runtime_error("Failed connection to the server");
     }
 }
+
+void IMAPClient::sendCommand(const IMAPCommand& command) {
+    std::string cmdStr = command.generate();
+    if (send(sockfd, cmdStr.c_str(), cmdStr.size(), 0) < 0) {
+        throw std::runtime_error("Failed IMAP command sending");
+    }
+}
+
+std::string IMAPClient::readResponse() {
+    char buffer[1024];
+    ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+    if (bytesRead < 0) {
+        throw std::runtime_error("Failed response reading");
+    }
+    buffer[bytesRead] = '\0';
+    return std::string(buffer);
+}

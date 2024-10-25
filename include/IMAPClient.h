@@ -6,12 +6,17 @@
 #define IMAP_TLS_CLIENT_IMAPCLIENT_H
 
 #include <string>
+#include "IMAPCommand.h"
 
 class IMAPClient{
 public:
     IMAPClient(const std::string& server, int port);
 
     void connect();
+
+    void sendCommand(const IMAPCommand& command);
+
+    std::string readResponse();
 
 private:
     std::string server;
