@@ -13,10 +13,14 @@
 
 
 IMAPClient::IMAPClient(const std::string& server, int port)
-        : server(server), port(port), sockfd(-1) {}
+        : server(server), port(port), sockfd(-1), currTagNum(1) {}
 
 void IMAPClient::connect() {
     createTCPConnetction();
+}
+
+void IMAPClient::generateNextTag(){
+    currTag = "A" + std::to_string(currTagNum++);
 }
 
 void IMAPClient::createTCPConnetction() {
@@ -42,7 +46,8 @@ void IMAPClient::createTCPConnetction() {
 }
 
 void IMAPClient::sendCommand(const IMAPCommand& command) {
-    std::string cmdStr = command.generate();
+    generateNextTag();
+    std::string cmdStr = currTag + " " + command.generate();
     if (send(sockfd, cmdStr.c_str(), cmdStr.size(), 0) < 0) {
         throw std::runtime_error("Failed IMAP command sending");
     }
@@ -50,10 +55,28 @@ void IMAPClient::sendCommand(const IMAPCommand& command) {
 
 std::string IMAPClient::readResponse() {
     char buffer[1024];
-    ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead < 0) {
-        throw std::runtime_error("Failed response reading");
+    std::string finalResponse;
+
+    while (true) {
+        ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+        if (bytesRead < 0) {
+            throw std::runtime_error("Failed to read response");
+        }
+        buffer[bytesRead] = '\0';
+
+        std::string response(buffer);
+
+        if (response[0] == '*') {
+            std::cout << "Intermediate response: " << response << std::endl;
+            continue;
+        }
+
+        if (response.find(currTag) == 0) {
+            finalResponse = response;
+            break;
+        } else {
+            throw std::runtime_error("Unexpected response tag or format");
+        }
     }
-    buffer[bytesRead] = '\0';
-    return std::string(buffer);
+    return finalResponse;
 }

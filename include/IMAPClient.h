@@ -18,10 +18,14 @@ public:
 
     std::string readResponse();
 
+    void generateNextTag();
+
 private:
     std::string server;
     int port;
     int sockfd;     //socket descriptor
+    int currTagNum;
+    std::string currTag;
 
     void createTCPConnetction();
 };
