@@ -20,9 +20,14 @@ public:
         std::string authFile;
         std::string mailbox = "INBOX";
         std::string outDir;
+        std::string username;
+        std::string password;
     };
 
     Config parse(int argc, char* argv[]);
+
+private:
+    std::pair<std::string, std::string> readAuthFile(const std::string& authFilePath);
 };
 
 #endif //IMAP_TLS_CLIENT_ARGPARSER_H

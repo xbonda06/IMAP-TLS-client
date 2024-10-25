@@ -6,6 +6,9 @@
 #include <getopt.h>
 #include <iostream>
 #include <stdexcept>
+#include <fstream>
+#include <sstream>
+#include <tuple>
 
 ArgParser::Config ArgParser::parse(int argc, char* argv[]){
     Config config;
@@ -74,5 +77,29 @@ ArgParser::Config ArgParser::parse(int argc, char* argv[]){
         throw std::invalid_argument("Required params: -a (auth_file) -o (output_dir)");
     }
 
+    std::tie(config.username, config.password) = readAuthFile(config.authFile);
+
     return config;
 }
+
+std::pair<std::string, std::string> ArgParser::readAuthFile(const std::string &authFilePath) {
+    std::ifstream authFile(authFilePath);
+    if (!authFile.is_open()) {
+        throw std::runtime_error("Open auth file failed");
+    }
+
+    std::string username, password, line;
+    if (std::getline(authFile, line)) {
+        std::istringstream iss(line);
+        std::string key, value;
+
+        if (std::getline(iss, key, '=') && key.find("username") != std::string::npos) {
+            if (iss >> username >> key && key == "password" && iss >> password) {
+                return {username, password};
+            }
+        }
+    }
+
+    throw std::runtime_error("Bad auth file format");
+}
+
