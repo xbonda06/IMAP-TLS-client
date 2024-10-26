@@ -18,12 +18,20 @@ int main(int argc, char* argv[]) {
         std::string response = client.readResponse();
         std::cout << "Command LOGIN response: " << response << std::endl;
 
+        auto selectCommand = IMAPCommandFactory::createSelectCommand(config.mailbox);
+        client.sendCommand(*selectCommand);
+        std::string selectResponse = client.readResponse();
+        std::cout << "SELECT response: " << selectResponse << std::endl;
+
+        auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
+        client.sendCommand(*fetchCommand);
+        std::string fetchResponse = client.readResponse();
+        std::cout << "FETCH response: " << fetchResponse << std::endl;
+
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
-
-
-
+    
     return 0;
 }

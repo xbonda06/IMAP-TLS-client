@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
+#include <sstream>
 
 
 IMAPClient::IMAPClient(const std::string& server, int port)
@@ -55,6 +57,7 @@ void IMAPClient::sendCommand(const IMAPCommand& command) {
 
 std::string IMAPClient::readResponse() {
     char buffer[1024];
+    std::string accumulatedResponse;
     std::string finalResponse;
 
     while (true) {
@@ -63,20 +66,28 @@ std::string IMAPClient::readResponse() {
             throw std::runtime_error("Failed to read response");
         }
         buffer[bytesRead] = '\0';
+        accumulatedResponse += buffer;
 
-        std::string response(buffer);
+        std::istringstream responseStream(accumulatedResponse);
+        std::string line;
+        std::vector<std::string> lines;
 
-        if (response[0] == '*') {
-            std::cout << "Intermediate response: " << response << std::endl;
-            continue;
+        while (std::getline(responseStream, line, '\n')) {
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+            lines.push_back(line);
         }
 
-        if (response.find(currTag) == 0) {
-            finalResponse = response;
-            break;
-        } else {
-            throw std::runtime_error("Unexpected response tag or format");
+        accumulatedResponse.clear();
+
+        for (const auto& line : lines) {
+            if (line[0] == '*') {
+                std::cout << "Intermediate response: " << line << std::endl;
+            } else if (line.find(currTag) == 0) {
+                finalResponse = line;
+                return finalResponse;
+            }
         }
     }
-    return finalResponse;
 }
