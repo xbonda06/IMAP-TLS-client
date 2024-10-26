@@ -68,26 +68,8 @@ std::string IMAPClient::readResponse() {
         buffer[bytesRead] = '\0';
         accumulatedResponse += buffer;
 
-        std::istringstream responseStream(accumulatedResponse);
-        std::string line;
-        std::vector<std::string> lines;
-
-        while (std::getline(responseStream, line, '\n')) {
-            if (!line.empty() && line.back() == '\r') {
-                line.pop_back();
-            }
-            lines.push_back(line);
-        }
-
-        accumulatedResponse.clear();
-
-        for (const auto& line : lines) {
-            if (line[0] == '*') {
-                std::cout << "Intermediate response: " << line << std::endl;
-            } else if (line.find(currTag) == 0) {
-                finalResponse = line;
-                return finalResponse;
-            }
+        if(accumulatedResponse.find(currTag) != std::string::npos){
+            return accumulatedResponse;
         }
     }
 }
