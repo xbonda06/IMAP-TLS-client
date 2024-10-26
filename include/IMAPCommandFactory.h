@@ -20,8 +20,8 @@ public:
         return std::make_unique<SelectCommand>(mailbox);
     }
 
-    static std::unique_ptr<IMAPCommand> createFetchCommand(const std::string& mailbox) {
-        return std::make_unique<FetchCommand>(mailbox);
+    static std::unique_ptr<IMAPCommand> createFetchCommand(bool onlyHeaders) {
+        return std::make_unique<FetchCommand>(onlyHeaders);
     }
 };
 

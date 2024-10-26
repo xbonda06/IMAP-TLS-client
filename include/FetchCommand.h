@@ -9,13 +9,15 @@
 #include <string>
 
 class FetchCommand : public IMAPCommand {
-    std::string mailbox;
+    bool onlyHeaders;
 
 public:
-    FetchCommand(const std::string& mailbox) : mailbox(mailbox) {}
+    FetchCommand(bool onlyHeaders) : onlyHeaders(onlyHeaders) {}
 
     std::string generate() const override {
-        return "FETCH " + mailbox + " (BODY[])\r\n";
+        std::string fetchPart = onlyHeaders ? "BODY[HEADER]" : "BODY[]";
+
+        return "FETCH 1:* (" + fetchPart + ")\r\n";
     }
 };
 
