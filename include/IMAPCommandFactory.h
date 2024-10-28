@@ -8,6 +8,7 @@
 #include "LoginCommand.h"
 #include "FetchCommand.h"
 #include "SelectCommand.h"
+#include "SearchCommand.h"
 #include <memory>
 
 class IMAPCommandFactory {
@@ -18,6 +19,10 @@ public:
 
     static std::unique_ptr<IMAPCommand> createSelectCommand(const std::string& mailbox) {
         return std::make_unique<SelectCommand>(mailbox);
+    }
+
+    static std::unique_ptr<IMAPCommand> createSearchCommand(bool onlyNew){
+        return std::make_unique<SearchCommand>(onlyNew);
     }
 
     static std::unique_ptr<IMAPCommand> createFetchCommand(bool onlyHeaders) {
