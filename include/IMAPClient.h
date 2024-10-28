@@ -8,6 +8,7 @@
 #include <string>
 #include "IMAPCommand.h"
 
+
 class IMAPClient{
 public:
     IMAPClient(const std::string& server, int port);
@@ -18,6 +19,8 @@ public:
 
     std::string readResponse();
 
+    std::string readWholeResponse();
+
     void generateNextTag();
 
 private:
@@ -26,8 +29,11 @@ private:
     int sockfd;     //socket descriptor
     int currTagNum;
     std::string currTag;
+    int lastCommand;
 
-    void createTCPConnetction();
+    void createTCPConnection();
+
+    size_t findOk(const std::string& response) const;
 };
 
 #endif //IMAP_TLS_CLIENT_IMAPCLIENT_H

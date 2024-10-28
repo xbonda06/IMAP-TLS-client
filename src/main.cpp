@@ -10,23 +10,28 @@ int main(int argc, char* argv[]) {
 
         IMAPClient client(config.server, config.port);
         client.connect();
+        std::string connectResponse = client.readWholeResponse();
+        std::cout << "Command Connect response: " << connectResponse << std::endl;
 
         auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
-
         client.sendCommand(*loginCommand);
-
-        std::string response = client.readResponse();
-        std::cout << "Command LOGIN response: " << response << std::endl;
+        std::string loginResponse = client.readWholeResponse();
+        std::cout << "Command LOGIN response: " << loginResponse << std::endl;
 
         auto selectCommand = IMAPCommandFactory::createSelectCommand(config.mailbox);
         client.sendCommand(*selectCommand);
-        std::string selectResponse = client.readResponse();
-        std::cout << "SELECT response: " << selectResponse << std::endl;
+        std::string selectResponse = client.readWholeResponse();
+        std::cout << "Command SELECT response: " << selectResponse << std::endl;
+
+        auto searchCommand = IMAPCommandFactory::createSearchCommand(config.onlyNew);
+        client.sendCommand(*searchCommand);
+        std::string searchResponse = client.readWholeResponse();
+        std::cout << "Command SEARCH response: " << searchResponse << std::endl;
 
         auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
         client.sendCommand(*fetchCommand);
-        std::string fetchResponse = client.readResponse();
-        std::cout << "FETCH response: " << fetchResponse << std::endl;
+        std::string fetchResponse = client.readWholeResponse();
+        std::cout << "Command FETCH response: " << fetchResponse << std::endl;
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
