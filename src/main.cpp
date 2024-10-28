@@ -9,19 +9,14 @@ int main(int argc, char* argv[]) {
         ArgParser::Config config = parser.parse(argc, argv);
 
         IMAPClient client(config);
+
         client.connect();
 
+        client.login();
+
+        client.select();
 
 
-        auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
-        client.sendCommand(*loginCommand);
-        std::string loginResponse = client.readWholeResponse();
-        std::cout << "Command LOGIN response: " << loginResponse << std::endl;
-
-        auto selectCommand = IMAPCommandFactory::createSelectCommand(config.mailbox);
-        client.sendCommand(*selectCommand);
-        std::string selectResponse = client.readWholeResponse();
-        std::cout << "Command SELECT response: " << selectResponse << std::endl;
 
         auto searchCommand = IMAPCommandFactory::createSearchCommand(config.onlyNew);
         client.sendCommand(*searchCommand);

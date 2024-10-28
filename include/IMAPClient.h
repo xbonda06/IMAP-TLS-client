@@ -6,6 +6,7 @@
 #define IMAP_TLS_CLIENT_IMAPCLIENT_H
 
 #include <string>
+#include <vector>
 #include "IMAPCommand.h"
 #include "IMAPResponceType.h"
 #include "ArgParser.h"
@@ -16,6 +17,10 @@ public:
     IMAPClient(const ArgParser::Config &config);
 
     void connect();
+
+    void login();
+
+    void select();
 
     void sendCommand(const IMAPCommand& command);
 
@@ -31,6 +36,7 @@ private:
     int currTagNum;
     std::string currTag;
     int lastCommand{};
+    std::vector<int> ids;
 
     void createTCPConnection();
 

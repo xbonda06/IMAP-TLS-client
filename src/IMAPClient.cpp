@@ -6,6 +6,7 @@
 #include "IMAPResponceType.h"
 #include "IMAPExceptions.h"
 #include "ArgParser.h"
+#include "IMAPCommandFactory.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -24,6 +25,20 @@ void IMAPClient::connect() {
     createTCPConnection();
     readWholeResponse();
 }
+
+void IMAPClient::login(){
+    auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
+    sendCommand(*loginCommand);
+    readWholeResponse();
+}
+
+void IMAPClient::select(){
+    auto selectCommand = IMAPCommandFactory::createSelectCommand(config.mailbox);
+    sendCommand(*selectCommand);
+    readWholeResponse();
+}
+
+
 
 void IMAPClient::generateNextTag(){
     currTag = "A" + std::to_string(currTagNum++);
