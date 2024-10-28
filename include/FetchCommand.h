@@ -9,15 +9,16 @@
 #include <string>
 
 class FetchCommand : public IMAPCommand {
+    int messageNumber;
     bool onlyHeaders;
 
 public:
-    FetchCommand(bool onlyHeaders) : onlyHeaders(onlyHeaders) {}
+    FetchCommand(int messageNumber, bool onlyHeaders) : messageNumber(messageNumber), onlyHeaders(onlyHeaders) {}
 
     std::string generate() const override {
         std::string fetchPart = onlyHeaders ? "BODY[HEADER]" : "BODY[]";
 
-        return "FETCH 1:* (" + fetchPart + ")\r\n";
+        return "FETCH " + std::to_string(messageNumber) + " (" + fetchPart + ")\r\n";
     }
 
     int getType() const override {return FETCH;}
