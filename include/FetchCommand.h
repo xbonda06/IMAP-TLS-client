@@ -19,6 +19,8 @@ public:
 
         return "FETCH 1:* (" + fetchPart + ")\r\n";
     }
+
+    int getType() const override {return FETCH;}
 };
 
 #endif //IMAP_TLS_CLIENT_FETCHCOMMAND_H

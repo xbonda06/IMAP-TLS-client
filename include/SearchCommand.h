@@ -19,6 +19,8 @@ public:
 
         return "SEARCH " + searchPart + "\r\n";
     }
+
+    int getType() const override {return SEARCH;}
 };
 
 #endif //IMAP_TLS_CLIENT_SEARCHCOMMAND_H

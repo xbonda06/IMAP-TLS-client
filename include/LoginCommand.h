@@ -20,6 +20,8 @@ public:
     std::string generate() const override {
         return "LOGIN " + username + "@" + server + " " + password + "\r\n";
     }
+
+    int getType() const override {return LOGIN;}
 };
 
 #endif //IMAP_TLS_CLIENT_LOGINCOMMAND_H

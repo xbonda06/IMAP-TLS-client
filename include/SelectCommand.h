@@ -16,6 +16,8 @@ public:
         return "SELECT " + mailbox + "\r\n";
     }
 
+    int getType() const override {return SELECT;}
+
 private:
     std::string mailbox;
 };
