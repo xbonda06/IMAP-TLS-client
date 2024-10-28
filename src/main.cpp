@@ -8,10 +8,10 @@ int main(int argc, char* argv[]) {
         ArgParser parser;
         ArgParser::Config config = parser.parse(argc, argv);
 
-        IMAPClient client(config.server, config.port);
+        IMAPClient client(config);
         client.connect();
-        std::string connectResponse = client.readWholeResponse();
-        std::cout << "Command Connect response: " << connectResponse << std::endl;
+
+
 
         auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
         client.sendCommand(*loginCommand);

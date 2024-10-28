@@ -5,6 +5,7 @@
 #include "../include/IMAPClient.h"
 #include "IMAPResponceType.h"
 #include "IMAPExceptions.h"
+#include "ArgParser.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -16,14 +17,13 @@
 #include <sstream>
 
 
-IMAPClient::IMAPClient(const std::string& server, int port)
-        : server(server), port(port), sockfd(-1), currTagNum(1) {}
+IMAPClient::IMAPClient(const ArgParser::Config &config)
+        : config(config), sockfd(-1), currTagNum(1) {}
 
 void IMAPClient::connect() {
     createTCPConnection();
+    readWholeResponse();
 }
-
-
 
 void IMAPClient::generateNextTag(){
     currTag = "A" + std::to_string(currTagNum++);
@@ -33,7 +33,7 @@ void IMAPClient::createTCPConnection() {
     struct sockaddr_in server_addr{};
     struct hostent* host;
 
-    host = gethostbyname(server.c_str());
+    host = gethostbyname(config.server.c_str());
     if(host == nullptr)
         throw std::runtime_error("Invalid IP-address");
 
@@ -42,7 +42,7 @@ void IMAPClient::createTCPConnection() {
         throw std::runtime_error("Creating socket error");
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
+    server_addr.sin_port = htons(config.port);
     server_addr.sin_addr = *((struct in_addr*) host->h_addr);
 
     if (::connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) {

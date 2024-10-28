@@ -8,11 +8,12 @@
 #include <string>
 #include "IMAPCommand.h"
 #include "IMAPResponceType.h"
+#include "ArgParser.h"
 
 
 class IMAPClient{
 public:
-    IMAPClient(const std::string& server, int port);
+    IMAPClient(const ArgParser::Config &config);
 
     void connect();
 
@@ -25,8 +26,7 @@ public:
     void generateNextTag();
 
 private:
-    std::string server;
-    int port;
+    ArgParser::Config config;
     int sockfd;     //socket descriptor
     int currTagNum;
     std::string currTag;
