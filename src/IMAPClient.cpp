@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <vector>
 #include <sstream>
+#include <regex>
 
 
 IMAPClient::IMAPClient(const ArgParser::Config &config)
@@ -38,7 +39,25 @@ void IMAPClient::select(){
     readWholeResponse();
 }
 
+void IMAPClient::search(){
+    auto searchCommand = IMAPCommandFactory::createSearchCommand(config.onlyNew);
+    sendCommand(*searchCommand);
+    std::string searchResponse = readWholeResponse();
 
+    std::regex searchRegex(R"(\* SEARCH\s((?:\d+\s*)+))");
+    std::smatch match;
+
+    if (std::regex_search(searchResponse, match, searchRegex) && match.size() > 1) {
+        std::istringstream iss(match[1].str());
+        int id;
+
+        while (iss >> id) {
+            ids.push_back(id);
+        }
+    } else {
+        throw std::runtime_error("SEARCH command response does not match with expected");
+    }
+}
 
 void IMAPClient::generateNextTag(){
     currTag = "A" + std::to_string(currTagNum++);

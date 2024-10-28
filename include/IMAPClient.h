@@ -22,6 +22,8 @@ public:
 
     void select();
 
+    void search();
+
     void sendCommand(const IMAPCommand& command);
 
     std::string readResponse();
@@ -36,6 +38,7 @@ private:
     int currTagNum;
     std::string currTag;
     int lastCommand{};
+    int messageCount;
     std::vector<int> ids;
 
     void createTCPConnection();

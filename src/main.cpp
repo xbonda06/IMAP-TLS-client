@@ -16,12 +16,7 @@ int main(int argc, char* argv[]) {
 
         client.select();
 
-
-
-        auto searchCommand = IMAPCommandFactory::createSearchCommand(config.onlyNew);
-        client.sendCommand(*searchCommand);
-        std::string searchResponse = client.readWholeResponse();
-        std::cout << "Command SEARCH response: " << searchResponse << std::endl;
+        client.search();
 
         auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
         client.sendCommand(*fetchCommand);
