@@ -3,6 +3,8 @@
 //
 
 #include "../include/IMAPClient.h"
+#include "IMAPResponceType.h"
+#include "IMAPExceptions.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -20,6 +22,8 @@ IMAPClient::IMAPClient(const std::string& server, int port)
 void IMAPClient::connect() {
     createTCPConnection();
 }
+
+
 
 void IMAPClient::generateNextTag(){
     currTag = "A" + std::to_string(currTagNum++);
@@ -94,19 +98,74 @@ size_t IMAPClient::findOk(const std::string& response) const {
     return idx;
 }
 
+size_t IMAPClient::findNo(const std::string& response) const {
+    size_t idx;
+
+    switch (lastCommand) {
+        case LOGIN:
+            idx = response.find("NO [AUTHENTICATIONFAILED] Authentication failed");
+            break;
+        case SELECT:
+            idx = response.find("NO Mailbox doesn't exist");
+            break;
+        default:
+            return std::string::npos;
+    }
+    return idx;
+}
+
+size_t IMAPClient::findBad(const std::string& response) const {
+    size_t idx;
+
+    switch (lastCommand) {
+        case SEARCH:
+            idx = response.find("BAD Error in IMAP command SEARCH");
+            break;
+        case FETCH:
+            idx = response.find("BAD Error in IMAP command FETCH");
+            break;
+        default:
+            return std::string::npos;
+    }
+    return idx;
+}
+
+IMAPResponseType IMAPClient::findResponseType(const std::string& response) const {
+    if (findOk(response) != std::string::npos) {
+        return IMAPResponseType::OK;
+    } else if (findNo(response) != std::string::npos) {
+        return IMAPResponseType::NO;
+    } else if (findBad(response) != std::string::npos) {
+        return IMAPResponseType::BAD;
+    }
+    return IMAPResponseType::UNKNOWN;
+}
+
+
 std::string IMAPClient::readWholeResponse() {
-    bool ok_found = false;
+    bool response_found = false;
     std::string lastMessage;
     std::string finalMessage;
-    size_t ok_pos;
+    IMAPResponseType responseType;
 
-    while(!ok_found){
+    while (!response_found) {
         lastMessage = readResponse();
-        ok_pos = findOk(lastMessage);
-        if(ok_pos != std::string::npos)
-            ok_found = true;
+        responseType = findResponseType(lastMessage);
+
+        if (responseType == IMAPResponseType::OK || responseType == IMAPResponseType::NO || responseType == IMAPResponseType::BAD) {
+            response_found = true;
+        }
+
         finalMessage.append(lastMessage);
     }
+
+    if (responseType == IMAPResponseType::NO) {
+        throw IMAPNoResponseException(finalMessage);
+    } else if (responseType == IMAPResponseType::BAD) {
+        throw IMAPBadResponseException(finalMessage);
+    }
+
     return finalMessage;
 }
+
 

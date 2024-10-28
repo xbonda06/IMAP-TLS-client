@@ -7,6 +7,7 @@
 
 #include <string>
 #include "IMAPCommand.h"
+#include "IMAPResponceType.h"
 
 
 class IMAPClient{
@@ -29,11 +30,17 @@ private:
     int sockfd;     //socket descriptor
     int currTagNum;
     std::string currTag;
-    int lastCommand;
+    int lastCommand{};
 
     void createTCPConnection();
 
     size_t findOk(const std::string& response) const;
+
+    IMAPResponseType findResponseType(const std::string &response) const;
+
+    size_t findNo(const std::string &response) const;
+
+    size_t findBad(const std::string &response) const;
 };
 
 #endif //IMAP_TLS_CLIENT_IMAPCLIENT_H
