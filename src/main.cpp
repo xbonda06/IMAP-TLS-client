@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
         client.select();
 
         if(client.search()){
-            client.fetchAndSaveAllMessages();
+            client.fetch();
         } else {
             std::cout << "No message has been downloaded from the " + config.mailbox + " mailbox" << std::endl;
         }

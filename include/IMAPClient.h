@@ -24,7 +24,7 @@ public:
 
     bool search();
 
-    void fetchAndSaveAllMessages();
+    void fetch();
 
     void fetchAndSaveMessage(int messageNumber);
 

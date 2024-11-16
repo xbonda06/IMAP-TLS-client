@@ -25,8 +25,8 @@ public:
         return std::make_unique<SearchCommand>(onlyNew);
     }
 
-    static std::unique_ptr<IMAPCommand> createFetchCommand(int messageNumber, bool onlyHeaders) {
-        return std::make_unique<FetchCommand>(messageNumber, onlyHeaders);
+    static std::unique_ptr<IMAPCommand> createFetchCommand(bool onlyHeaders) {
+        return std::make_unique<FetchCommand>(onlyHeaders);
     }
 };
 

@@ -65,42 +65,59 @@ bool IMAPClient::search(){
     }
 }
 
-void IMAPClient::fetchAndSaveAllMessages() {
-    for (int id : ids) {
-        fetchAndSaveMessage(id);
-    }
-}
+void IMAPClient::fetch() {
+    auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
 
-void IMAPClient::fetchAndSaveMessage(int messageNumber) {
-    auto fetchCommand = IMAPCommandFactory::createFetchCommand(messageNumber, config.onlyHeaders);
     sendCommand(*fetchCommand);
 
     std::string response = readWholeResponse();
 
-    std::regex bodyRegex(R"(\* \d+ FETCH.*\{(\d+)\})");
-    std::smatch match;
+    std::filesystem::create_directories(config.outDir);
 
-    if (std::regex_search(response, match, bodyRegex)) {
-        std::string messageContent = response.substr(response.find("\r\n") + 2);
+    int savedCount = 0;
+    size_t pos = 0;
 
-        size_t okIdx = findOk(messageContent);
+    // Find the start of each message
+    while ((pos = response.find("* ", pos)) != std::string::npos) {
+        // Find the id
+        size_t idStart = pos + 2;
+        size_t idEnd = response.find(' ', idStart);
+        if (idEnd == std::string::npos) break;
 
+        int messageId = std::stoi(response.substr(idStart, idEnd - idStart));
 
+        // Check if found id is in uids
+        if (std::find(ids.begin(), ids.end(), messageId) == ids.end()) {
+            pos = idEnd;
+            continue;
+        }
 
-        std::filesystem::create_directories(config.outDir);
+        // Find the start of the response body
+        size_t bodyStart = response.find("{", idEnd);
+        if (bodyStart == std::string::npos) break;
+        size_t bodyEnd = response.find("}", bodyStart);
+        if (bodyEnd == std::string::npos) break;
 
-        std::string filename = config.outDir + "/message_" + std::to_string(messageNumber) + ".eml";
+        int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
+        size_t messageStart = bodyEnd + 3; // skip "}\r\n"
+
+        std::string messageBody = response.substr(messageStart, messageSize);
+
+        std::string filename = config.outDir + "/message_" + std::to_string(messageId);
         std::ofstream outFile(filename);
         if (outFile) {
-            outFile << messageContent;
+            outFile << messageBody;
             outFile.close();
-            std::cout << "Message " << messageNumber << " saved into " << filename << std::endl;
+            savedCount++;
         } else {
             throw std::runtime_error("Failed to create a file to save the message");
         }
-    } else {
-        throw std::runtime_error("Error when retrieving email content");
+
+        // Update position for the next message search
+        pos = messageStart + messageSize + 2;
     }
+
+    std::cout << "Saved " << savedCount << " messages from the " << config.mailbox << "." << std::endl;
 }
 
 void IMAPClient::generateNextTag(){
