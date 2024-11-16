@@ -54,6 +54,14 @@ private:
     size_t findNo(const std::string &response) const;
 
     size_t findBad(const std::string &response) const;
+
+    static std::string decodeBase64(const std::string &encoded);
+
+    static std::string extractAndDecodeSubject(const std::string &headers);
+
+    static std::string validateSubject(const std::string &subject);
+
+    static std::string decodeQuotedPrintable(const std::string &encoded);
 };
 
 #endif //IMAP_TLS_CLIENT_IMAPCLIENT_H

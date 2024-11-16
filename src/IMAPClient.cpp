@@ -19,6 +19,8 @@
 #include <regex>
 #include <fstream>
 #include <filesystem>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
 
 
 IMAPClient::IMAPClient(const ArgParser::Config &config)
@@ -103,7 +105,16 @@ void IMAPClient::fetch() {
 
         std::string messageBody = response.substr(messageStart, messageSize);
 
-        std::string filename = config.outDir + "/message_" + std::to_string(messageId);
+        size_t headersEnd = messageBody.find("\r\n\r\n");
+        std::string headers = messageBody.substr(0, headersEnd);
+
+        std::string subject = extractAndDecodeSubject(headers);
+
+        subject = validateSubject(subject);
+
+        std::replace(subject.begin(), subject.end(), ' ', '_');
+
+        std::string filename = config.outDir + "/msg_" + std::to_string(messageId) + "_" + subject;
         std::ofstream outFile(filename);
         if (outFile) {
             outFile << messageBody;
@@ -271,3 +282,72 @@ IMAPResponseType IMAPClient::findResponseType(const std::string& response) const
     return IMAPResponseType::UNKNOWN;
 }
 
+std::string IMAPClient::decodeBase64(const std::string &encoded) {
+    BIO *bio, *b64;
+    char buffer[1024];
+    std::string decoded;
+
+    bio = BIO_new_mem_buf(encoded.data(), encoded.size());
+    b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_push(b64, bio);
+
+    int decodedLength;
+    while ((decodedLength = BIO_read(bio, buffer, sizeof(buffer))) > 0) {
+        decoded.append(buffer, decodedLength);
+    }
+
+    BIO_free_all(bio);
+    return decoded;
+}
+
+std::string IMAPClient::decodeQuotedPrintable(const std::string &encoded) {
+    std::ostringstream decoded;
+    for (size_t i = 0; i < encoded.size(); ++i) {
+        if (encoded[i] == '=' && i + 2 < encoded.size()) {
+            std::string hex = encoded.substr(i + 1, 2);
+            char decodedChar = static_cast<char>(std::stoi(hex, nullptr, 16));
+            decoded << decodedChar;
+            i += 2;
+        } else {
+            decoded << encoded[i];
+        }
+    }
+    return decoded.str();
+}
+
+std::string IMAPClient::extractAndDecodeSubject(const std::string &headers) {
+    std::regex encodedSubjectRegex(R"(Subject:\s=\?([A-Za-z0-9-]+)\?(B|Q)\?([A-Za-z0-9+/=]+)\?=)", std::regex::icase);
+    std::smatch match;
+
+    if (std::regex_search(headers, match, encodedSubjectRegex)) {
+        std::string charset = match[1].str();
+        std::string encoding = match[2].str();
+        std::string encodedSubject = match[3].str();
+
+        if (encoding == "B" || encoding == "b") {
+            return decodeBase64(encodedSubject);
+        } else if (encoding == "Q" || encoding == "q") {
+            return decodeQuotedPrintable(encodedSubject);
+        }
+    }
+
+    std::regex plainSubjectRegex(R"(Subject:\s(.+))", std::regex::icase);
+    if (std::regex_search(headers, match, plainSubjectRegex)) {
+        return match[1].str();
+    }
+
+    return "no_subject";
+}
+
+std::string IMAPClient::validateSubject(const std::string &subject) {
+    std::string cleanSubject;
+    for (char c : subject) {
+        if (c != '/' && c != '\\' && c != ':' && c != '*' && c != '?' &&
+            c != '"' && c != '<' && c != '>' && c != '|' && c != '&' &&
+            c != ';' && c != ',' && c != '.') {
+            cleanSubject += c;
+        }
+    }
+    return cleanSubject;
+}

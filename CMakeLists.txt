@@ -3,10 +3,13 @@ project(IMAP_TLS_client)
 
 set(CMAKE_CXX_STANDARD 17)
 
+find_package(OpenSSL REQUIRED)
+
 include_directories(include)
 
 add_executable(IMAP_TLS_client src/main.cpp
         src/ArgParser.cpp
         src/IMAPClient.cpp
-        include/LogoutCommand.h
 )
+
+target_link_libraries(IMAP_TLS_client PRIVATE OpenSSL::SSL OpenSSL::Crypto)
