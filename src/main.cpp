@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
             std::cout << "No message has been downloaded from the " + config.mailbox + " mailbox" << std::endl;
         }
 
+        client.logout();
 
 
     } catch (const std::exception &e) {

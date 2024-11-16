@@ -12,6 +12,7 @@
 #define SELECT 2
 #define SEARCH 3
 #define FETCH 4
+#define LOGOUT 5
 
 // abstract class for commands
 class IMAPCommand {

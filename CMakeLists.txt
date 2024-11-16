@@ -8,4 +8,5 @@ include_directories(include)
 add_executable(IMAP_TLS_client src/main.cpp
         src/ArgParser.cpp
         src/IMAPClient.cpp
+        include/LogoutCommand.h
 )

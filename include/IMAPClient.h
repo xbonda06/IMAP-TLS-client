@@ -26,7 +26,7 @@ public:
 
     void fetch();
 
-    void fetchAndSaveMessage(int messageNumber);
+    void logout();
 
     void sendCommand(const IMAPCommand& command);
 

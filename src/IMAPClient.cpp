@@ -120,6 +120,12 @@ void IMAPClient::fetch() {
     std::cout << "Saved " << savedCount << " messages from the " << config.mailbox << "." << std::endl;
 }
 
+void IMAPClient::logout() {
+    auto logoutCommand = IMAPCommandFactory::createLogoutCommand();
+    sendCommand(*logoutCommand);
+    readWholeResponse();
+}
+
 void IMAPClient::generateNextTag(){
     currTag = "A" + std::to_string(currTagNum++);
 }
@@ -212,6 +218,9 @@ size_t IMAPClient::findOk(const std::string& response) const {
             break;
         case FETCH:
             idx = response.find("OK Fetch completed");
+            break;
+        case LOGOUT:
+            idx = response.find("OK Logout completed");
             break;
         default:
             break;
