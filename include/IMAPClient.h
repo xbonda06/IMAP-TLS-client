@@ -22,7 +22,11 @@ public:
 
     void select();
 
-    void search();
+    bool search();
+
+    void fetchAndSaveAllMessages();
+
+    void fetchAndSaveMessage(int messageNumber);
 
     void sendCommand(const IMAPCommand& command);
 

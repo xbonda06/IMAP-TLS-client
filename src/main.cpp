@@ -16,12 +16,13 @@ int main(int argc, char* argv[]) {
 
         client.select();
 
-        client.search();
+        if(client.search()){
+            client.fetchAndSaveAllMessages();
+        } else {
+            std::cout << "No message has been downloaded from the " + config.mailbox + " mailbox" << std::endl;
+        }
 
-        auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
-        client.sendCommand(*fetchCommand);
-        std::string fetchResponse = client.readWholeResponse();
-        std::cout << "Command FETCH response: " << fetchResponse << std::endl;
+
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;

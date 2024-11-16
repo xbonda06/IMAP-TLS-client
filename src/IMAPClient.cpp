@@ -17,6 +17,8 @@
 #include <vector>
 #include <sstream>
 #include <regex>
+#include <fstream>
+#include <filesystem>
 
 
 IMAPClient::IMAPClient(const ArgParser::Config &config)
@@ -39,7 +41,7 @@ void IMAPClient::select(){
     readWholeResponse();
 }
 
-void IMAPClient::search(){
+bool IMAPClient::search(){
     auto searchCommand = IMAPCommandFactory::createSearchCommand(config.onlyNew);
     sendCommand(*searchCommand);
     std::string searchResponse = readWholeResponse();
@@ -54,8 +56,50 @@ void IMAPClient::search(){
         while (iss >> id) {
             ids.push_back(id);
         }
+        return true;
+
+    } else if (findOk(searchResponse) != std::string::npos){
+        return false;
     } else {
         throw std::runtime_error("SEARCH command response does not match with expected");
+    }
+}
+
+void IMAPClient::fetchAndSaveAllMessages() {
+    for (int id : ids) {
+        fetchAndSaveMessage(id);
+    }
+}
+
+void IMAPClient::fetchAndSaveMessage(int messageNumber) {
+    auto fetchCommand = IMAPCommandFactory::createFetchCommand(messageNumber, config.onlyHeaders);
+    sendCommand(*fetchCommand);
+
+    std::string response = readWholeResponse();
+
+    std::regex bodyRegex(R"(\* \d+ FETCH.*\{(\d+)\})");
+    std::smatch match;
+
+    if (std::regex_search(response, match, bodyRegex)) {
+        std::string messageContent = response.substr(response.find("\r\n") + 2);
+
+        size_t okIdx = findOk(messageContent);
+
+
+
+        std::filesystem::create_directories(config.outDir);
+
+        std::string filename = config.outDir + "/message_" + std::to_string(messageNumber) + ".eml";
+        std::ofstream outFile(filename);
+        if (outFile) {
+            outFile << messageContent;
+            outFile.close();
+            std::cout << "Message " << messageNumber << " saved into " << filename << std::endl;
+        } else {
+            throw std::runtime_error("Failed to create a file to save the message");
+        }
+    } else {
+        throw std::runtime_error("Error when retrieving email content");
     }
 }
 
@@ -107,6 +151,32 @@ std::string IMAPClient::readResponse() {
     std::string response(buffer);
 
     return response;
+}
+
+std::string IMAPClient::readWholeResponse() {
+    bool response_found = false;
+    std::string lastMessage;
+    std::string finalMessage;
+    IMAPResponseType responseType;
+
+    while (!response_found) {
+        lastMessage = readResponse();
+        responseType = findResponseType(lastMessage);
+
+        if (responseType == IMAPResponseType::OK || responseType == IMAPResponseType::NO || responseType == IMAPResponseType::BAD) {
+            response_found = true;
+        }
+
+        finalMessage.append(lastMessage);
+    }
+
+    if (responseType == IMAPResponseType::NO) {
+        throw IMAPNoResponseException(finalMessage);
+    } else if (responseType == IMAPResponseType::BAD) {
+        throw IMAPBadResponseException(finalMessage);
+    }
+
+    return finalMessage;
 }
 
 size_t IMAPClient::findOk(const std::string& response) const {
@@ -174,32 +244,4 @@ IMAPResponseType IMAPClient::findResponseType(const std::string& response) const
     }
     return IMAPResponseType::UNKNOWN;
 }
-
-
-std::string IMAPClient::readWholeResponse() {
-    bool response_found = false;
-    std::string lastMessage;
-    std::string finalMessage;
-    IMAPResponseType responseType;
-
-    while (!response_found) {
-        lastMessage = readResponse();
-        responseType = findResponseType(lastMessage);
-
-        if (responseType == IMAPResponseType::OK || responseType == IMAPResponseType::NO || responseType == IMAPResponseType::BAD) {
-            response_found = true;
-        }
-
-        finalMessage.append(lastMessage);
-    }
-
-    if (responseType == IMAPResponseType::NO) {
-        throw IMAPNoResponseException(finalMessage);
-    } else if (responseType == IMAPResponseType::BAD) {
-        throw IMAPBadResponseException(finalMessage);
-    }
-
-    return finalMessage;
-}
-
 
