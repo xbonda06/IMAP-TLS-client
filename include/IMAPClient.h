@@ -14,7 +14,7 @@
 
 class IMAPClient{
 public:
-    IMAPClient(const ArgParser::Config &config);
+    explicit IMAPClient(ArgParser::Config config);
 
     void connect();
 
@@ -30,7 +30,7 @@ public:
 
     void sendCommand(const IMAPCommand& command);
 
-    std::string readResponse();
+    [[nodiscard]] std::string readResponse() const;
 
     std::string readWholeResponse();
 
@@ -42,18 +42,18 @@ private:
     int currTagNum;
     std::string currTag;
     int lastCommand{};
-    int messageCount;
+    int messageCount{};
     std::vector<int> ids;
 
     void createTCPConnection();
 
-    size_t findOk(const std::string& response) const;
+    [[nodiscard]] size_t findOk(const std::string& response) const;
 
-    IMAPResponseType findResponseType(const std::string &response) const;
+    [[nodiscard]] IMAPResponseType findResponseType(const std::string &response) const;
 
-    size_t findNo(const std::string &response) const;
+    [[nodiscard]] size_t findNo(const std::string &response) const;
 
-    size_t findBad(const std::string &response) const;
+    [[nodiscard]] size_t findBad(const std::string &response) const;
 
     static std::string decodeBase64(const std::string &encoded);
 
@@ -65,7 +65,7 @@ private:
 
     std::string fetchById(int messageNumber);
 
-    bool saveMessage(int messageId, const std::string &messageBody) const;
+    [[nodiscard]] bool saveMessage(int messageId, const std::string &messageBody) const;
 
     size_t processMessage(const std::string &response, int messageId, int &savedCount, size_t startPos);
 };

@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 #include <sstream>
 #include <regex>
@@ -23,8 +24,8 @@
 #include <openssl/evp.h>
 
 
-IMAPClient::IMAPClient(const ArgParser::Config &config)
-        : config(config), sockfd(-1), currTagNum(1) {}
+IMAPClient::IMAPClient(ArgParser::Config config)
+        : config(std::move(config)), sockfd(-1), currTagNum(1) {}
 
 void IMAPClient::connect() {
     createTCPConnection();
@@ -136,8 +137,8 @@ void IMAPClient::fetch() {
 }
 
 size_t IMAPClient::processMessage(const std::string& response, int messageId, int& savedCount, size_t startPos) {
-    size_t bodyStart = response.find("{", startPos);
-    size_t bodyEnd = response.find("}", bodyStart);
+    size_t bodyStart = response.find('{', startPos);
+    size_t bodyEnd = response.find('}', bodyStart);
 
     if (bodyStart == std::string::npos || bodyEnd == std::string::npos) {
         return startPos; // Skip invalid responses
@@ -197,7 +198,7 @@ void IMAPClient::sendCommand(const IMAPCommand& command) {
     }
 }
 
-std::string IMAPClient::readResponse() {
+std::string IMAPClient::readResponse() const {
     char buffer[1024];
 
     ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
