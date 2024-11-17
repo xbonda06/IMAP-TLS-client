@@ -7,6 +7,7 @@
 #include "IMAPExceptions.h"
 #include "ArgParser.h"
 #include "IMAPCommandFactory.h"
+#include "SSLWrapper.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -25,10 +26,20 @@
 
 
 IMAPClient::IMAPClient(ArgParser::Config config)
-        : config(std::move(config)), sockfd(-1), currTagNum(1) {}
+        : config(std::move(config)), sockfd(-1), ssl(nullptr), currTagNum(1) {
+    if (config.useSSL) {
+        SSLWrapper::getInstance().initSSL();
+    }
+}
 
 void IMAPClient::connect() {
     createTCPConnection();
+    if (config.useSSL) {
+        ssl = SSLWrapper::getInstance().createSSLConnection(sockfd);
+        if (!ssl) {
+            throw std::runtime_error("Failed to establish SSL connection");
+        }
+    }
     readWholeResponse();
 }
 
@@ -191,22 +202,34 @@ void IMAPClient::logout() {
 
 void IMAPClient::sendCommand(const IMAPCommand& command) {
     generateNextTag();
-    std::string cmdStr = currTag + " " + command.generate();
     lastCommand = command.getType();
-    if (send(sockfd, cmdStr.c_str(), cmdStr.size(), 0) < 0) {
-        throw std::runtime_error("Failed IMAP command sending");
+    std::string cmdStr = currTag + " " + command.generate();
+
+    if (config.useSSL && ssl) {
+        SSLWrapper::getInstance().sendData(ssl, cmdStr);
+    } else {
+        if (send(sockfd, cmdStr.c_str(), cmdStr.size(), 0) < 0) {
+            throw std::runtime_error("Failed IMAP command sending");
+        }
     }
+
 }
 
 std::string IMAPClient::readResponse() const {
-    char buffer[1024];
+    std::string response;
 
-    ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead < 0) {
-        throw std::runtime_error("Failed to read response");
+    if (config.useSSL && ssl) {
+        SSLWrapper::getInstance().receiveData(ssl, response);
+    } else {
+        char buffer[1024];
+
+        ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+        if (bytesRead < 0) {
+            throw std::runtime_error("Failed to read response");
+        }
+        buffer[bytesRead] = '\0';
+        response.append(buffer, bytesRead);
     }
-    buffer[bytesRead] = '\0';
-    std::string response(buffer);
 
     return response;
 }

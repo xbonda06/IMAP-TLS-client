@@ -34,6 +34,10 @@ void SSLWrapper::initContext() {
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
+
+    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
+
+    SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
 }
 
 SSL* SSLWrapper::createSSLConnection(int socket) {

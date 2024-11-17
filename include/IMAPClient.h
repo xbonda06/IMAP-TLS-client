@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <openssl/ssl.h>
 #include "IMAPCommand.h"
 #include "IMAPResponceType.h"
 #include "ArgParser.h"
@@ -39,6 +40,7 @@ public:
 private:
     ArgParser::Config config;
     int sockfd;     //socket descriptor
+    SSL* ssl;
     int currTagNum;
     std::string currTag;
     int lastCommand{};
