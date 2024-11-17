@@ -1,5 +1,5 @@
 //
-// Created by xbonda06 on 24.10.2024.
+// Created by Andrii Bondarenko (xbonda06) on 24.10.2024.
 //
 
 #include "../include/IMAPClient.h"

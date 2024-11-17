@@ -1,3 +1,6 @@
+//
+// Created by Andrii Bondarenko (xbonda06)
+//
 #include <iostream>
 #include "../include/ArgParser.h"
 #include "../include/IMAPClient.h"

@@ -1,5 +1,5 @@
 //
-// Created by media on 17.11.2024.
+// Created by Andrii Bondarenko (xbonda06) on 17.11.2024.
 //
 
 #ifndef IMAP_TLS_CLIENT_SSLWRAPPER_H
