@@ -12,8 +12,6 @@ int main(int argc, char* argv[]) {
         ArgParser parser;
         ArgParser::Config config = parser.parse(argc, argv);
 
-
-
         IMAPClient client(config);
 
         client.connect();
