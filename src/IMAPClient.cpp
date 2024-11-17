@@ -334,11 +334,19 @@ std::string IMAPClient::decodeBase64(const std::string &encoded) {
 std::string IMAPClient::decodeQuotedPrintable(const std::string &encoded) {
     std::ostringstream decoded;
     for (size_t i = 0; i < encoded.size(); ++i) {
-        if (encoded[i] == '=' && i + 2 < encoded.size()) {
-            std::string hex = encoded.substr(i + 1, 2);
-            char decodedChar = static_cast<char>(std::stoi(hex, nullptr, 16));
-            decoded << decodedChar;
-            i += 2;
+        if (encoded[i] == '=') {
+            if (i + 2 < encoded.size()) {
+                std::string hex = encoded.substr(i + 1, 2);
+                try {
+                    char decodedChar = static_cast<char>(std::stoi(hex, nullptr, 16));
+                    decoded << decodedChar;
+                    i += 2;
+                } catch (...) {
+                    decoded << '=';
+                }
+            }
+        } else if (encoded[i] == '_') {
+            decoded << ' ';
         } else {
             decoded << encoded[i];
         }
@@ -347,22 +355,32 @@ std::string IMAPClient::decodeQuotedPrintable(const std::string &encoded) {
 }
 
 std::string IMAPClient::extractAndDecodeSubject(const std::string &headers) {
-    std::regex encodedSubjectRegex(R"(Subject:\s=\?([A-Za-z0-9-]+)\?(B|Q)\?([A-Za-z0-9+/=]+)\?=)", std::regex::icase);
+    std::regex subjectRegex(R"(Subject:\s*(=\?[^\?]+\?[BQbq]\?[^\?]+\?=)(.*))", std::regex::icase);
     std::smatch match;
 
-    if (std::regex_search(headers, match, encodedSubjectRegex)) {
-        std::string charset = match[1].str();
-        std::string encoding = match[2].str();
-        std::string encodedSubject = match[3].str();
+    if (std::regex_search(headers, match, subjectRegex)) {
+        std::string encodedParts = match[1].str() + match[2].str();
+        std::string decodedSubject;
 
-        if (encoding == "B" || encoding == "b") {
-            return decodeBase64(encodedSubject);
-        } else if (encoding == "Q" || encoding == "q") {
-            return decodeQuotedPrintable(encodedSubject);
+        std::regex partRegex(R"(=\?([A-Za-z0-9-]+)\?(B|Q|b|q)\?([A-Za-z0-9+/=]+)\?=)", std::regex::icase);
+        auto partsBegin = std::sregex_iterator(encodedParts.begin(), encodedParts.end(), partRegex);
+        auto partsEnd = std::sregex_iterator();
+
+        for (std::sregex_iterator i = partsBegin; i != partsEnd; ++i) {
+            std::smatch partMatch = *i;
+            std::string charset = partMatch[1].str();
+            std::string encoding = partMatch[2].str();
+            std::string encodedText = partMatch[3].str();
+
+            if (encoding == "B" || encoding == "b") {
+                decodedSubject += decodeBase64(encodedText);
+            } else if (encoding == "Q" || encoding == "q") {
+                decodedSubject += decodeQuotedPrintable(encodedText);
+            }
         }
+        return decodedSubject;
     }
-
-    std::regex plainSubjectRegex(R"(Subject:\s(.+))", std::regex::icase);
+    std::regex plainSubjectRegex(R"(Subject:\s*(.+))", std::regex::icase);
     if (std::regex_search(headers, match, plainSubjectRegex)) {
         return match[1].str();
     }
