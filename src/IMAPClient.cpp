@@ -8,6 +8,9 @@
 #include "ArgParser.h"
 #include "IMAPCommandFactory.h"
 #include "SSLWrapper.h"
+#include "ConnectionStrategy.h"
+#include "SSLConnectionStrategy.h"
+#include "TCPConnectionStrategy.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -26,52 +29,23 @@
 
 
 IMAPClient::IMAPClient(ArgParser::Config config)
-        : config(std::move(config)), sockfd(-1), ssl(nullptr), currTagNum(1) {
+        : config(config), currTagNum(1) {
+
     if (config.useSSL) {
-        SSLWrapper::getInstance().initSSL();
+        strategy = std::make_unique<SSLConnectionStrategy>(
+                config.server, config.port,
+                config.cert.empty() ? "" : config.certDir + "/" + config.cert,
+                config.certDir
+        );
+    } else {
+        strategy = std::make_unique<TCPConnectionStrategy>(config.server, config.port);
     }
 }
 
 void IMAPClient::connect() {
-    createTCPConnection();
-    if (config.useSSL) {
-        if (!config.cert.empty()) {
-            std::string certPath = config.certDir + "/" + config.cert;
-            SSLWrapper::getInstance().setCertificate(certPath);
-        }
-        if (!config.certDir.empty()) {
-            SSLWrapper::getInstance().setCertDirectory(config.certDir);
-        }
-        ssl = SSLWrapper::getInstance().createSSLConnection(sockfd);
-        if (!ssl) {
-            throw std::runtime_error("Failed to establish SSL connection");
-        }
-    }
+    strategy->connect();
+    lastCommand = CONNECT;
     readWholeResponse();
-}
-
-void IMAPClient::createTCPConnection() {
-    struct sockaddr_in server_addr{};
-    struct hostent* host;
-
-    host = gethostbyname(config.server.c_str());
-    if(host == nullptr)
-        throw std::runtime_error("Invalid IP-address");
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd < 0)
-        throw std::runtime_error("Creating socket error");
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(config.port);
-    server_addr.sin_addr = *((struct in_addr*) host->h_addr);
-
-    if (::connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) {
-        close(sockfd);
-        throw std::runtime_error("Failed connection to the server");
-    } else {
-        lastCommand = CONNECT;
-    }
 }
 
 void IMAPClient::generateNextTag(){
@@ -116,8 +90,6 @@ bool IMAPClient::search(){
 
 void IMAPClient::fetch() {
     std::filesystem::create_directories(config.outDir);
-
-    int savedCount = 0;
 
     if (config.onlyNew) {
         // Fetch messages one by one for new messages only
@@ -212,15 +184,7 @@ void IMAPClient::logout() {
     sendCommand(*logoutCommand);
     readWholeResponse();
 
-    if (config.useSSL && ssl) {
-        SSLWrapper::getInstance().closeSSLConnection(ssl);
-        ssl = nullptr;
-    }
-
-    if (sockfd != -1) {
-        close(sockfd);
-        sockfd = -1;
-    }
+    strategy->disconnect();
 }
 
 void IMAPClient::sendCommand(const IMAPCommand& command) {
@@ -228,33 +192,11 @@ void IMAPClient::sendCommand(const IMAPCommand& command) {
     lastCommand = command.getType();
     std::string cmdStr = currTag + " " + command.generate();
 
-    if (config.useSSL && ssl) {
-        SSLWrapper::getInstance().sendData(ssl, cmdStr);
-    } else {
-        if (send(sockfd, cmdStr.c_str(), cmdStr.size(), 0) < 0) {
-            throw std::runtime_error("Failed IMAP command sending");
-        }
-    }
-
+    strategy->sendCommand(cmdStr);
 }
 
 std::string IMAPClient::readResponse() const {
-    std::string response;
-
-    if (config.useSSL && ssl) {
-        SSLWrapper::getInstance().receiveData(ssl, response);
-    } else {
-        char buffer[1024];
-
-        ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-        if (bytesRead < 0) {
-            throw std::runtime_error("Failed to read response");
-        }
-        buffer[bytesRead] = '\0';
-        response.append(buffer, bytesRead);
-    }
-
-    return response;
+    return strategy->readResponse();
 }
 
 std::string IMAPClient::readWholeResponse() {

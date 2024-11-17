@@ -51,9 +51,8 @@ public:
         }
     }
 
-    void sendCommand(const IMAPCommand& command) override {
-        std::string cmd = command.generate();
-        if (send(sockfd, cmd.c_str(), cmd.size(), 0) < 0) {
+    void sendCommand(std::string command) override {
+        if (send(sockfd, command.c_str(), command.size(), 0) < 0) {
             throw std::runtime_error("Failed to send command");
         }
     }

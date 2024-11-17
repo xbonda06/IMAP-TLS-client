@@ -8,9 +8,11 @@
 #include <string>
 #include <vector>
 #include <openssl/ssl.h>
+#include <memory>
 #include "IMAPCommand.h"
 #include "IMAPResponceType.h"
 #include "ArgParser.h"
+#include "ConnectionStrategy.h"
 
 
 class IMAPClient{
@@ -39,15 +41,13 @@ public:
 
 private:
     ArgParser::Config config;
-    int sockfd;     //socket descriptor
-    SSL* ssl;
     int currTagNum;
     std::string currTag;
     int lastCommand{};
     int messageSaved = 0;
     std::vector<int> ids;
 
-    void createTCPConnection();
+    std::unique_ptr<ConnectionStrategy> strategy;
 
     [[nodiscard]] size_t findOk(const std::string& response) const;
 

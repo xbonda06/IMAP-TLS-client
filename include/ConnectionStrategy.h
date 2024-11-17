@@ -14,7 +14,7 @@ public:
 
     virtual void connect() = 0;
     virtual void disconnect() = 0;
-    virtual void sendCommand(const IMAPCommand& command) = 0;
+    virtual void sendCommand(std::string command) = 0;
     virtual std::string readResponse() const = 0;
 };
 

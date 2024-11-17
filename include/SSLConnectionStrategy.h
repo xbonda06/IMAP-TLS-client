@@ -18,13 +18,23 @@ private:
     int sockfd;
     std::string server;
     int port;
+    std::string certFile;
+    std::string certDir;
 
 public:
-    SSLConnectionStrategy(const std::string& server, int port)
-            : ssl(nullptr), sockfd(-1), server(server), port(port) {}
+    SSLConnectionStrategy(const std::string& server, int port, const std::string& certFile = "", const std::string& certDir = "")
+            : ssl(nullptr), sockfd(-1), server(server), port(port), certFile(certFile), certDir(certDir) {}
 
     void connect() override {
         SSLWrapper::getInstance().initSSL();
+
+        if (!certFile.empty()) {
+            SSLWrapper::getInstance().setCertificate(certFile);
+        }
+        if (!certDir.empty()) {
+            SSLWrapper::getInstance().setCertDirectory(certDir);
+        }
+
         struct sockaddr_in server_addr{};
         struct hostent* host = gethostbyname(server.c_str());
         if (host == nullptr) {
@@ -58,12 +68,12 @@ public:
         }
         if (sockfd != -1) {
             close(sockfd);
+            sockfd = -1;
         }
     }
 
-    void sendCommand(const IMAPCommand& command) override {
-        std::string cmd = command.generate();
-        SSLWrapper::getInstance().sendData(ssl, cmd);
+    void sendCommand(std::string command) override {
+        SSLWrapper::getInstance().sendData(ssl, command);
     }
 
     std::string readResponse() const override {
