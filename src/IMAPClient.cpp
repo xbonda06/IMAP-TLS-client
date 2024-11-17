@@ -31,6 +31,34 @@ void IMAPClient::connect() {
     readWholeResponse();
 }
 
+void IMAPClient::createTCPConnection() {
+    struct sockaddr_in server_addr{};
+    struct hostent* host;
+
+    host = gethostbyname(config.server.c_str());
+    if(host == nullptr)
+        throw std::runtime_error("Invalid IP-address");
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(sockfd < 0)
+        throw std::runtime_error("Creating socket error");
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(config.port);
+    server_addr.sin_addr = *((struct in_addr*) host->h_addr);
+
+    if (::connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) {
+        close(sockfd);
+        throw std::runtime_error("Failed connection to the server");
+    } else {
+        lastCommand = CONNECT;
+    }
+}
+
+void IMAPClient::generateNextTag(){
+    currTag = "A" + std::to_string(currTagNum++);
+}
+
 void IMAPClient::login(){
     auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
     sendCommand(*loginCommand);
@@ -68,101 +96,103 @@ bool IMAPClient::search(){
 }
 
 void IMAPClient::fetch() {
-    auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
-
-    sendCommand(*fetchCommand);
-
-    std::string response = readWholeResponse();
-
     std::filesystem::create_directories(config.outDir);
 
     int savedCount = 0;
-    size_t pos = 0;
 
-    // Find the start of each message
-    while ((pos = response.find("* ", pos)) != std::string::npos) {
-        // Find the id
-        size_t idStart = pos + 2;
-        size_t idEnd = response.find(' ', idStart);
-        if (idEnd == std::string::npos) break;
+    if (config.onlyNew) {
+        // Fetch messages one by one for new messages only
+        for (int id : ids) {
+            std::string response = fetchById(id);
 
-        int messageId = std::stoi(response.substr(idStart, idEnd - idStart));
+            size_t bodyStart = response.find("{");
+            size_t bodyEnd = response.find("}", bodyStart);
+            if (bodyStart == std::string::npos || bodyEnd == std::string::npos) {
+                continue; // Skip invalid responses
+            }
 
-        // Check if found id is in uids
-        if (std::find(ids.begin(), ids.end(), messageId) == ids.end()) {
-            pos = idEnd;
-            continue;
+            int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
+            size_t messageStart = bodyEnd + 3; // Skip "}\r\n"
+            std::string messageBody = response.substr(messageStart, messageSize);
+
+            if (saveMessage(id, messageBody)) {
+                savedCount++;
+            }
         }
+    } else {
+        // Fetch all messages in bulk
+        auto fetchCommand = IMAPCommandFactory::createFetchCommand(config.onlyHeaders);
+        sendCommand(*fetchCommand);
 
-        // Find the start of the response body
-        size_t bodyStart = response.find("{", idEnd);
-        if (bodyStart == std::string::npos) break;
-        size_t bodyEnd = response.find("}", bodyStart);
-        if (bodyEnd == std::string::npos) break;
+        std::string response = readWholeResponse();
+        size_t pos = 0;
 
-        int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
-        size_t messageStart = bodyEnd + 3; // skip "}\r\n"
+        // Parse and save messages
+        while ((pos = response.find("* ", pos)) != std::string::npos) {
+            size_t idStart = pos + 2;
+            size_t idEnd = response.find(' ', idStart);
+            if (idEnd == std::string::npos) break;
 
-        std::string messageBody = response.substr(messageStart, messageSize);
+            int messageId = std::stoi(response.substr(idStart, idEnd - idStart));
 
-        size_t headersEnd = messageBody.find("\r\n\r\n");
-        std::string headers = messageBody.substr(0, headersEnd);
+            // Check if found ID is in the list of IDs
+            if (std::find(ids.begin(), ids.end(), messageId) == ids.end()) {
+                pos = idEnd;
+                continue;
+            }
 
-        std::string subject = extractAndDecodeSubject(headers);
+            size_t bodyStart = response.find("{", idEnd);
+            size_t bodyEnd = response.find("}", bodyStart);
+            if (bodyStart == std::string::npos || bodyEnd == std::string::npos) break;
 
-        subject = validateSubject(subject);
+            int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
+            size_t messageStart = bodyEnd + 3; // Skip "}\r\n"
 
-        std::replace(subject.begin(), subject.end(), ' ', '_');
+            std::string messageBody = response.substr(messageStart, messageSize);
 
-        std::string filename = config.outDir + "/msg_" + std::to_string(messageId) + "_" + subject;
-        std::ofstream outFile(filename);
-        if (outFile) {
-            outFile << messageBody;
-            outFile.close();
-            savedCount++;
-        } else {
-            throw std::runtime_error("Failed to create a file to save the message");
+            if (saveMessage(messageId, messageBody)) {
+                savedCount++;
+            }
+
+            pos = messageStart + messageSize + 2;
         }
-
-        // Update position for the next message search
-        pos = messageStart + messageSize + 2;
     }
 
     std::cout << "Saved " << savedCount << " messages from the " << config.mailbox << "." << std::endl;
+}
+
+std::string IMAPClient::fetchById(int messageNumber) {
+    auto fetchCommand = IMAPCommandFactory::createFetchByIdCommand(messageNumber, config.onlyHeaders);
+    sendCommand(*fetchCommand);
+    std::string response = readWholeResponse();
+    return response;
+}
+
+bool IMAPClient::saveMessage(int messageId, const std::string& messageBody) const {
+    size_t headersEnd = messageBody.find("\r\n\r\n");
+    std::string headers = messageBody.substr(0, headersEnd);
+
+    std::string subject = extractAndDecodeSubject(headers);
+    subject = validateSubject(subject);
+    std::replace(subject.begin(), subject.end(), ' ', '_');
+
+    std::string filename = config.outDir + "/msg_" + std::to_string(messageId) + "_" + subject;
+
+    std::ofstream outFile(filename);
+    if (outFile) {
+        outFile << messageBody;
+        outFile.close();
+        return true;
+    } else {
+        std::cerr << "Failed to save message " << messageId << " to " << filename << std::endl;
+        return false;
+    }
 }
 
 void IMAPClient::logout() {
     auto logoutCommand = IMAPCommandFactory::createLogoutCommand();
     sendCommand(*logoutCommand);
     readWholeResponse();
-}
-
-void IMAPClient::generateNextTag(){
-    currTag = "A" + std::to_string(currTagNum++);
-}
-
-void IMAPClient::createTCPConnection() {
-    struct sockaddr_in server_addr{};
-    struct hostent* host;
-
-    host = gethostbyname(config.server.c_str());
-    if(host == nullptr)
-        throw std::runtime_error("Invalid IP-address");
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd < 0)
-        throw std::runtime_error("Creating socket error");
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(config.port);
-    server_addr.sin_addr = *((struct in_addr*) host->h_addr);
-
-    if (::connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) {
-        close(sockfd);
-        throw std::runtime_error("Failed connection to the server");
-    } else {
-        lastCommand = CONNECT;
-    }
 }
 
 void IMAPClient::sendCommand(const IMAPCommand& command) {

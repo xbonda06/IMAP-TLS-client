@@ -62,6 +62,10 @@ private:
     static std::string validateSubject(const std::string &subject);
 
     static std::string decodeQuotedPrintable(const std::string &encoded);
+
+    std::string fetchById(int messageNumber);
+
+    bool saveMessage(int messageId, const std::string &messageBody) const;
 };
 
 #endif //IMAP_TLS_CLIENT_IMAPCLIENT_H

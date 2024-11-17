@@ -10,6 +10,7 @@
 #include "SelectCommand.h"
 #include "SearchCommand.h"
 #include "LogoutCommand.h"
+#include "FetchByIdCommand.h"
 #include <memory>
 
 class IMAPCommandFactory {
@@ -28,6 +29,10 @@ public:
 
     static std::unique_ptr<IMAPCommand> createFetchCommand(bool onlyHeaders) {
         return std::make_unique<FetchCommand>(onlyHeaders);
+    }
+
+    static std::unique_ptr<IMAPCommand> createFetchByIdCommand(int messageId, bool onlyHeaders) {
+        return std::make_unique<FetchByIdCommand>(messageId, onlyHeaders);
     }
 
     static std::unique_ptr<IMAPCommand> createLogoutCommand() {
