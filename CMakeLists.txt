@@ -10,6 +10,7 @@ include_directories(include)
 add_executable(IMAP_TLS_client src/main.cpp
         src/ArgParser.cpp
         src/IMAPClient.cpp
+        src/SSLWrapper.cpp
 )
 
 target_link_libraries(IMAP_TLS_client PRIVATE OpenSSL::SSL OpenSSL::Crypto)
