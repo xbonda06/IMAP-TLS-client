@@ -35,6 +35,13 @@ IMAPClient::IMAPClient(ArgParser::Config config)
 void IMAPClient::connect() {
     createTCPConnection();
     if (config.useSSL) {
+        if (!config.cert.empty()) {
+            std::string certPath = config.certDir + "/" + config.cert;
+            SSLWrapper::getInstance().setCertificate(certPath);
+        }
+        if (!config.certDir.empty()) {
+            SSLWrapper::getInstance().setCertDirectory(config.certDir);
+        }
         ssl = SSLWrapper::getInstance().createSSLConnection(sockfd);
         if (!ssl) {
             throw std::runtime_error("Failed to establish SSL connection");
@@ -116,7 +123,7 @@ void IMAPClient::fetch() {
         // Fetch messages one by one for new messages only
         for (int id : ids) {
             std::string response = fetchById(id);
-            processMessage(response, id, savedCount, 0);
+            processMessage(response, id, 0);
         }
     } else {
         // Fetch all messages in bulk
@@ -140,14 +147,17 @@ void IMAPClient::fetch() {
                 continue;
             }
 
-            pos = processMessage(response, messageId, savedCount, pos);
+            pos = processMessage(response, messageId, pos);
         }
     }
 
-    std::cout << "Saved " << savedCount << " messages from the " << config.mailbox << "." << std::endl;
+    if(messageSaved > 0)
+        std::cout << "Saved " << messageSaved << " messages from the " << config.mailbox << "." << std::endl;
+    else
+        std::cout << "No message saved from the " << config.mailbox << "." << std::endl;
 }
 
-size_t IMAPClient::processMessage(const std::string& response, int messageId, int& savedCount, size_t startPos) {
+size_t IMAPClient::processMessage(const std::string &response, int messageId, size_t startPos) {
     size_t bodyStart = response.find('{', startPos);
     size_t bodyEnd = response.find('}', bodyStart);
 
@@ -161,7 +171,7 @@ size_t IMAPClient::processMessage(const std::string& response, int messageId, in
     std::string messageBody = response.substr(messageStart, messageSize);
 
     if (saveMessage(messageId, messageBody)) {
-        savedCount++;
+        messageSaved++;
     }
 
     return messageStart + messageSize + 2; // Move to next position
@@ -182,6 +192,9 @@ bool IMAPClient::saveMessage(int messageId, const std::string& messageBody) cons
     std::replace(subject.begin(), subject.end(), ' ', '_');
 
     std::string filename = config.outDir + "/msg_" + std::to_string(messageId) + "_" + subject;
+
+    if (std::filesystem::exists(filename))
+        return false;
 
     std::ofstream outFile(filename);
     if (outFile) {

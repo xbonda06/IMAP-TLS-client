@@ -21,6 +21,9 @@ public:
     int sendData(SSL* ssl, const std::string& data);
     int receiveData(SSL* ssl, std::string& buffer);
 
+    void setCertificate(const std::string& certFile);
+    void setCertDirectory(const std::string& certDir);
+
 private:
     SSL_CTX* ctx;
 

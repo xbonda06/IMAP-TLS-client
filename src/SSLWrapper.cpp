@@ -3,8 +3,6 @@
 //
 
 #include "SSLWrapper.h"
-
-#include "SSLWrapper.h"
 #include <iostream>
 #include <cstring>
 
@@ -38,6 +36,22 @@ void SSLWrapper::initContext() {
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
 
     SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+}
+
+void SSLWrapper::setCertificate(const std::string& certFile) {
+    if (SSL_CTX_use_certificate_file(ctx, certFile.c_str(), SSL_FILETYPE_PEM) <= 0) {
+        std::cerr << "Failed to load certificate file: " << certFile << std::endl;
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void SSLWrapper::setCertDirectory(const std::string& certDir) {
+    if (!SSL_CTX_load_verify_locations(ctx, nullptr, certDir.c_str())) {
+        std::cerr << "Failed to load certificate directory: " << certDir << std::endl;
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
 }
 
 SSL* SSLWrapper::createSSLConnection(int socket) {
