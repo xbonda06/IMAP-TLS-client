@@ -7,9 +7,12 @@
 
 #include <string>
 #include <vector>
+#include <openssl/ssl.h>
+#include <memory>
 #include "IMAPCommand.h"
 #include "IMAPResponceType.h"
 #include "ArgParser.h"
+#include "ConnectionStrategy.h"
 
 
 class IMAPClient{
@@ -38,14 +41,13 @@ public:
 
 private:
     ArgParser::Config config;
-    int sockfd;     //socket descriptor
     int currTagNum;
     std::string currTag;
     int lastCommand{};
-    int messageCount{};
+    int messageSaved = 0;
     std::vector<int> ids;
 
-    void createTCPConnection();
+    std::unique_ptr<ConnectionStrategy> strategy;
 
     [[nodiscard]] size_t findOk(const std::string& response) const;
 
@@ -67,7 +69,7 @@ private:
 
     [[nodiscard]] bool saveMessage(int messageId, const std::string &messageBody) const;
 
-    size_t processMessage(const std::string &response, int messageId, int &savedCount, size_t startPos);
+    size_t processMessage(const std::string &response, int messageId, size_t startPos);
 };
 
 #endif //IMAP_TLS_CLIENT_IMAPCLIENT_H

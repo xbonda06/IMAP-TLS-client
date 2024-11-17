@@ -7,6 +7,10 @@
 #include "IMAPExceptions.h"
 #include "ArgParser.h"
 #include "IMAPCommandFactory.h"
+#include "SSLWrapper.h"
+#include "ConnectionStrategy.h"
+#include "SSLConnectionStrategy.h"
+#include "TCPConnectionStrategy.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -25,35 +29,23 @@
 
 
 IMAPClient::IMAPClient(ArgParser::Config config)
-        : config(std::move(config)), sockfd(-1), currTagNum(1) {}
+        : config(config), currTagNum(1) {
 
-void IMAPClient::connect() {
-    createTCPConnection();
-    readWholeResponse();
+    if (config.useSSL) {
+        strategy = std::make_unique<SSLConnectionStrategy>(
+                config.server, config.port,
+                config.cert.empty() ? "" : config.certDir + "/" + config.cert,
+                config.certDir
+        );
+    } else {
+        strategy = std::make_unique<TCPConnectionStrategy>(config.server, config.port);
+    }
 }
 
-void IMAPClient::createTCPConnection() {
-    struct sockaddr_in server_addr{};
-    struct hostent* host;
-
-    host = gethostbyname(config.server.c_str());
-    if(host == nullptr)
-        throw std::runtime_error("Invalid IP-address");
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd < 0)
-        throw std::runtime_error("Creating socket error");
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(config.port);
-    server_addr.sin_addr = *((struct in_addr*) host->h_addr);
-
-    if (::connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) {
-        close(sockfd);
-        throw std::runtime_error("Failed connection to the server");
-    } else {
-        lastCommand = CONNECT;
-    }
+void IMAPClient::connect() {
+    strategy->connect();
+    lastCommand = CONNECT;
+    readWholeResponse();
 }
 
 void IMAPClient::generateNextTag(){
@@ -99,13 +91,11 @@ bool IMAPClient::search(){
 void IMAPClient::fetch() {
     std::filesystem::create_directories(config.outDir);
 
-    int savedCount = 0;
-
     if (config.onlyNew) {
         // Fetch messages one by one for new messages only
         for (int id : ids) {
             std::string response = fetchById(id);
-            processMessage(response, id, savedCount, 0);
+            processMessage(response, id, 0);
         }
     } else {
         // Fetch all messages in bulk
@@ -129,14 +119,17 @@ void IMAPClient::fetch() {
                 continue;
             }
 
-            pos = processMessage(response, messageId, savedCount, pos);
+            pos = processMessage(response, messageId, pos);
         }
     }
 
-    std::cout << "Saved " << savedCount << " messages from the " << config.mailbox << "." << std::endl;
+    if(messageSaved > 0)
+        std::cout << "Saved " << messageSaved << " messages from the " << config.mailbox << "." << std::endl;
+    else
+        std::cout << "No message saved from the " << config.mailbox << "." << std::endl;
 }
 
-size_t IMAPClient::processMessage(const std::string& response, int messageId, int& savedCount, size_t startPos) {
+size_t IMAPClient::processMessage(const std::string &response, int messageId, size_t startPos) {
     size_t bodyStart = response.find('{', startPos);
     size_t bodyEnd = response.find('}', bodyStart);
 
@@ -150,7 +143,7 @@ size_t IMAPClient::processMessage(const std::string& response, int messageId, in
     std::string messageBody = response.substr(messageStart, messageSize);
 
     if (saveMessage(messageId, messageBody)) {
-        savedCount++;
+        messageSaved++;
     }
 
     return messageStart + messageSize + 2; // Move to next position
@@ -172,6 +165,9 @@ bool IMAPClient::saveMessage(int messageId, const std::string& messageBody) cons
 
     std::string filename = config.outDir + "/msg_" + std::to_string(messageId) + "_" + subject;
 
+    if (std::filesystem::exists(filename))
+        return false;
+
     std::ofstream outFile(filename);
     if (outFile) {
         outFile << messageBody;
@@ -187,28 +183,20 @@ void IMAPClient::logout() {
     auto logoutCommand = IMAPCommandFactory::createLogoutCommand();
     sendCommand(*logoutCommand);
     readWholeResponse();
+
+    strategy->disconnect();
 }
 
 void IMAPClient::sendCommand(const IMAPCommand& command) {
     generateNextTag();
-    std::string cmdStr = currTag + " " + command.generate();
     lastCommand = command.getType();
-    if (send(sockfd, cmdStr.c_str(), cmdStr.size(), 0) < 0) {
-        throw std::runtime_error("Failed IMAP command sending");
-    }
+    std::string cmdStr = currTag + " " + command.generate();
+
+    strategy->sendCommand(cmdStr);
 }
 
 std::string IMAPClient::readResponse() const {
-    char buffer[1024];
-
-    ssize_t bytesRead = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead < 0) {
-        throw std::runtime_error("Failed to read response");
-    }
-    buffer[bytesRead] = '\0';
-    std::string response(buffer);
-
-    return response;
+    return strategy->readResponse();
 }
 
 std::string IMAPClient::readWholeResponse() {
