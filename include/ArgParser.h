@@ -11,7 +11,7 @@ class ArgParser{
 public:
     struct Config{
         std::string server;
-        int port = 143; // imap default port
+        int port = useSSL ? 993 : 143; // imap default port
         bool useSSL = false;
         std::string cert;
         std::string certDir = "/etc/ssl/certs";
