@@ -211,6 +211,16 @@ void IMAPClient::logout() {
     auto logoutCommand = IMAPCommandFactory::createLogoutCommand();
     sendCommand(*logoutCommand);
     readWholeResponse();
+
+    if (config.useSSL && ssl) {
+        SSLWrapper::getInstance().closeSSLConnection(ssl);
+        ssl = nullptr;
+    }
+
+    if (sockfd != -1) {
+        close(sockfd);
+        sockfd = -1;
+    }
 }
 
 void IMAPClient::sendCommand(const IMAPCommand& command) {

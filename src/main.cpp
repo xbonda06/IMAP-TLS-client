@@ -2,11 +2,14 @@
 #include "../include/ArgParser.h"
 #include "../include/IMAPClient.h"
 #include "IMAPCommandFactory.h"
+#include "SSLWrapper.h"
 
 int main(int argc, char* argv[]) {
     try {
         ArgParser parser;
         ArgParser::Config config = parser.parse(argc, argv);
+
+
 
         IMAPClient client(config);
 
@@ -24,11 +27,16 @@ int main(int argc, char* argv[]) {
 
         client.logout();
 
+        if (config.useSSL) {
+            SSLWrapper::getInstance().cleanupSSL();
+        }
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
+
+
     
     return 0;
 }
