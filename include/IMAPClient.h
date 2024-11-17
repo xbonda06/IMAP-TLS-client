@@ -66,6 +66,8 @@ private:
     std::string fetchById(int messageNumber);
 
     bool saveMessage(int messageId, const std::string &messageBody) const;
+
+    size_t processMessage(const std::string &response, int messageId, int &savedCount, size_t startPos);
 };
 
 #endif //IMAP_TLS_CLIENT_IMAPCLIENT_H

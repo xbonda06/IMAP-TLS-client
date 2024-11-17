@@ -104,20 +104,7 @@ void IMAPClient::fetch() {
         // Fetch messages one by one for new messages only
         for (int id : ids) {
             std::string response = fetchById(id);
-
-            size_t bodyStart = response.find("{");
-            size_t bodyEnd = response.find("}", bodyStart);
-            if (bodyStart == std::string::npos || bodyEnd == std::string::npos) {
-                continue; // Skip invalid responses
-            }
-
-            int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
-            size_t messageStart = bodyEnd + 3; // Skip "}\r\n"
-            std::string messageBody = response.substr(messageStart, messageSize);
-
-            if (saveMessage(id, messageBody)) {
-                savedCount++;
-            }
+            processMessage(response, id, savedCount, 0);
         }
     } else {
         // Fetch all messages in bulk
@@ -141,31 +128,37 @@ void IMAPClient::fetch() {
                 continue;
             }
 
-            size_t bodyStart = response.find("{", idEnd);
-            size_t bodyEnd = response.find("}", bodyStart);
-            if (bodyStart == std::string::npos || bodyEnd == std::string::npos) break;
-
-            int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
-            size_t messageStart = bodyEnd + 3; // Skip "}\r\n"
-
-            std::string messageBody = response.substr(messageStart, messageSize);
-
-            if (saveMessage(messageId, messageBody)) {
-                savedCount++;
-            }
-
-            pos = messageStart + messageSize + 2;
+            pos = processMessage(response, messageId, savedCount, pos);
         }
     }
 
     std::cout << "Saved " << savedCount << " messages from the " << config.mailbox << "." << std::endl;
 }
 
+size_t IMAPClient::processMessage(const std::string& response, int messageId, int& savedCount, size_t startPos) {
+    size_t bodyStart = response.find("{", startPos);
+    size_t bodyEnd = response.find("}", bodyStart);
+
+    if (bodyStart == std::string::npos || bodyEnd == std::string::npos) {
+        return startPos; // Skip invalid responses
+    }
+
+    int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
+    size_t messageStart = bodyEnd + 3; // Skip "}\r\n"
+
+    std::string messageBody = response.substr(messageStart, messageSize);
+
+    if (saveMessage(messageId, messageBody)) {
+        savedCount++;
+    }
+
+    return messageStart + messageSize + 2; // Move to next position
+}
+
 std::string IMAPClient::fetchById(int messageNumber) {
     auto fetchCommand = IMAPCommandFactory::createFetchByIdCommand(messageNumber, config.onlyHeaders);
     sendCommand(*fetchCommand);
-    std::string response = readWholeResponse();
-    return response;
+    return readWholeResponse();
 }
 
 bool IMAPClient::saveMessage(int messageId, const std::string& messageBody) const {
