@@ -32,12 +32,6 @@ void SSLWrapper::initContext() {
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
-
-    // Disable older versions of SSL/TLS for security reasons
-    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
-
-    // Ensure that at least TLS 1.2 is used
-    SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
 }
 
 void SSLWrapper::setCertificate(const std::string& certFile) {

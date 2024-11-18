@@ -41,31 +41,45 @@ public:
             SSLWrapper::getInstance().setCertDirectory(certDir);
         }
 
-        struct sockaddr_in server_addr{};
-        struct hostent* host = gethostbyname(server.c_str());
-        if (host == nullptr) {
-            throw std::runtime_error("Invalid server address");
+        struct addrinfo hints{};
+        struct addrinfo* result;
+
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+
+        int status = getaddrinfo(server.c_str(), std::to_string(port).c_str(), &hints, &result);
+        if (status != 0) {
+            throw std::runtime_error("getaddrinfo error: " + std::string(gai_strerror(status)));
         }
 
-        sockfd = socket(AF_INET, SOCK_STREAM, 0);
-        if (sockfd < 0) {
-            throw std::runtime_error("Error creating socket");
-        }
+        struct addrinfo* p;
+        for (p = result; p != nullptr; p = p->ai_next) {
+            sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+            if (sockfd < 0) {
+                continue;
+            }
 
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(port);
-        server_addr.sin_addr = *((struct in_addr*) host->h_addr);
+            if (::connect(sockfd, p->ai_addr, p->ai_addrlen) == 0) {
+                break;
+            }
 
-        if (::connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
             close(sockfd);
+        }
+
+        freeaddrinfo(result);
+
+        if (p == nullptr) {
             throw std::runtime_error("Failed to connect to server");
         }
 
         ssl = SSLWrapper::getInstance().createSSLConnection(sockfd);
         if (!ssl) {
+            close(sockfd);
             throw std::runtime_error("Failed to establish SSL connection");
         }
     }
+
 
     void disconnect() override {
         if (ssl) {
