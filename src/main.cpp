@@ -12,6 +12,8 @@ int main(int argc, char* argv[]) {
         ArgParser parser;
         ArgParser::Config config = parser.parse(argc, argv);
 
+        config.port = config.useSSL ? 993 : 143;
+
         IMAPClient client(config);
 
         client.connect();
