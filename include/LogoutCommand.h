@@ -8,6 +8,9 @@
 #include "IMAPCommand.h"
 #include <string>
 
+/**
+ * @brief Represents the IMAP LOGOUT command.
+ */
 class LogoutCommand : public IMAPCommand {
 
 public:

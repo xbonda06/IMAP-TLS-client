@@ -14,7 +14,13 @@
 #include "ArgParser.h"
 #include "ConnectionStrategy.h"
 
-
+/**
+ * @brief The IMAPClient class handles communication with an IMAP server.
+ *
+ * This class manages all interactions with the IMAP server, including connecting, authenticating,
+ * selecting mailboxes, searching for messages, and fetching emails. It uses different connection
+ * strategies (TCP or SSL) based on user input.
+ */
 class IMAPClient{
 public:
     explicit IMAPClient(ArgParser::Config config);
@@ -40,14 +46,14 @@ public:
     void generateNextTag();
 
 private:
-    ArgParser::Config config;
-    int currTagNum;
-    std::string currTag;
-    int lastCommand{};
-    int messageSaved = 0;
-    std::vector<int> ids;
+    ArgParser::Config config;   ///< config with cli parameters
+    int currTagNum;             ///< current number used in tag
+    std::string currTag;        ///< last generated tag
+    int lastCommand{};          ///< last sent command
+    int messageSaved = 0;       ///< the amount of saved message
+    std::vector<int> ids;       ///< ids of messages got by SEARCH command
 
-    std::unique_ptr<ConnectionStrategy> strategy;
+    std::unique_ptr<ConnectionStrategy> strategy; ///< strategy for TCP or SSL connection
 
     [[nodiscard]] size_t findOk(const std::string& response) const;
 

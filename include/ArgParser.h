@@ -7,8 +7,16 @@
 
 #include <string>
 
+/**
+ * @brief The ArgParser class is responsible for parsing command-line arguments
+ *        and storing them in a Config structure for use by the IMAP client.
+ */
 class ArgParser{
 public:
+
+    /**
+     * @brief Configuration structure that holds all necessary parameters for the IMAP client.
+     */
     struct Config{
         std::string server;
         int port = useSSL ? 993 : 143; // imap default port

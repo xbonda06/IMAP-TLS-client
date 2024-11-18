@@ -10,6 +10,13 @@
 #include <sstream>
 #include <tuple>
 
+/**
+ * @brief Parses command-line arguments and stores them in the Config structure.
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line arguments.
+ * @return Config structure containing all necessary parameters for the client.
+ * @throws std::invalid_argument if required parameters are missing or invalid.
+ */
 ArgParser::Config ArgParser::parse(int argc, char* argv[]){
     Config config;
 
@@ -82,6 +89,13 @@ ArgParser::Config ArgParser::parse(int argc, char* argv[]){
     return config;
 }
 
+
+/**
+ * @brief Reads the authentication file and extracts the username and password.
+ * @param authFilePath Path to the authentication file.
+ * @return A pair containing the username and password.
+ * @throws std::runtime_error if the file cannot be opened or the format is incorrect.
+ */
 std::pair<std::string, std::string> ArgParser::readAuthFile(const std::string &authFilePath) {
     std::ifstream authFile(authFilePath);
     if (!authFile.is_open()) {
@@ -93,10 +107,12 @@ std::pair<std::string, std::string> ArgParser::readAuthFile(const std::string &a
         std::istringstream iss(line);
         std::string key, value;
 
+        // Parse the username
         if (!(iss >> key) || key != "username" || !(iss >> key) || key != "=" || !(iss >> username)) {
             throw std::runtime_error("Incorrect username format in auth file");
         }
 
+        // Parse the password
         if (!(iss >> key) || key != "password" || !(iss >> key) || key != "=" || !(iss >> password)) {
             throw std::runtime_error("Incorrect password format in auth file");
         }

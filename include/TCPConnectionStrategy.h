@@ -13,11 +13,17 @@
 #include <string>
 #include <stdexcept>
 
+/**
+ * @brief Implements a strategy for establishing a plain TCP connection with the IMAP server.
+ *
+ * The TCPConnectionStrategy class handles establishing an unencrypted connection
+ * to the IMAP server, sending commands, and reading responses over a plain TCP socket.
+ */
 class TCPConnectionStrategy : public ConnectionStrategy {
 private:
-    int sockfd;
-    std::string server;
-    int port;
+    int sockfd;         ///< socket file descriptor.
+    std::string server; ///< The IMAP server address.
+    int port;           ///< The server port.
 
 public:
     TCPConnectionStrategy(const std::string& server, int port)

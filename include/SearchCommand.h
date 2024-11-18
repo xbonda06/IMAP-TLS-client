@@ -8,6 +8,9 @@
 #include "IMAPCommand.h"
 #include <string>
 
+/**
+ * @brief Represents the IMAP SEARCH command.
+ */
 class SearchCommand : public IMAPCommand {
     bool onlyNew;
 

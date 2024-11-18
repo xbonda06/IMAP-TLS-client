@@ -13,6 +13,13 @@
 #include "FetchByIdCommand.h"
 #include <memory>
 
+/**
+ * @brief Factory class for creating various IMAPCommand objects.
+ *
+ * The IMAPCommandFactory class provides methods to create specific IMAP commands
+ * like LOGIN, SELECT, SEARCH, FETCH, and LOGOUT. It abstracts the creation logic,
+ * allowing clients to generate commands without directly instantiating them.
+ */
 class IMAPCommandFactory {
 public:
     static std::unique_ptr<IMAPCommand> createLoginCommand(const std::string& user, const std::string& server, const std::string& pass) {

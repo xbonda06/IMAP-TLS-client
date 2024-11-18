@@ -8,6 +8,9 @@
 #include "IMAPCommand.h"
 #include <string>
 
+/**
+ * @brief Represents the IMAP LOGIN command.
+ */
 class LoginCommand : public IMAPCommand {
     std::string username;
     std::string server;

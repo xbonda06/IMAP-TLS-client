@@ -27,7 +27,12 @@
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 
-
+/**
+ * @brief Constructs an IMAPClient with specified configuration.
+ *
+ * Initializes the connection strategy (SSL/TLS or TCP) based on the config.
+ * @param config Configuration struct containing server details, SSL settings, and other options.
+ */
 IMAPClient::IMAPClient(ArgParser::Config config)
         : config(config), currTagNum(1) {
 
@@ -42,28 +47,48 @@ IMAPClient::IMAPClient(ArgParser::Config config)
     }
 }
 
+/**
+ * @brief Establishes a connection to the IMAP server using the selected strategy.
+ *
+ * Initiates the connection, then reads the initial server response to ensure connectivity.
+ * @throws std::runtime_error if the connection fails.
+ */
 void IMAPClient::connect() {
     strategy->connect();
     lastCommand = CONNECT;
     readWholeResponse();
 }
 
+
 void IMAPClient::generateNextTag(){
     currTag = "A" + std::to_string(currTagNum++);
 }
 
+/**
+ * @brief Sends the LOGIN command to authenticate with the IMAP server.
+ */
 void IMAPClient::login(){
     auto loginCommand = IMAPCommandFactory::createLoginCommand(config.username, config.server, config.password);
     sendCommand(*loginCommand);
     readWholeResponse();
 }
 
+/**
+ * @brief Sends the SELECT command to choose a mailbox (e.g., INBOX) for further actions.
+ */
 void IMAPClient::select(){
     auto selectCommand = IMAPCommandFactory::createSelectCommand(config.mailbox);
     sendCommand(*selectCommand);
     readWholeResponse();
 }
 
+/**
+ * @brief Executes the SEARCH command based on the user's options to retrieve message IDs.
+ *
+ * This command searches for new or all messages and stores their IDs in a list.
+ * @return True if messages matching the criteria were found; otherwise, false.
+ * @throws std::runtime_error if the search command fails.
+ */
 bool IMAPClient::search(){
     auto searchCommand = IMAPCommandFactory::createSearchCommand(config.onlyNew);
     sendCommand(*searchCommand);
@@ -88,6 +113,12 @@ bool IMAPClient::search(){
     }
 }
 
+/**
+ * @brief Fetches messages from the server and saves them to the output directory.
+ *
+ * If the `onlyNew` option is enabled, it fetches messages one by one; otherwise,
+ * it fetches all messages in bulk. Each message is then saved individually.
+ */
 void IMAPClient::fetch() {
     std::filesystem::create_directories(config.outDir);
 
@@ -129,17 +160,32 @@ void IMAPClient::fetch() {
         std::cout << "No message saved from the " << config.mailbox << "." << std::endl;
 }
 
+/**
+ * @brief Processes a single message response from the server and saves the message.
+ *
+ * This function extracts the message body from the response based on the provided start position.
+ * It saves the message to a file with a formatted name if the message is valid.
+ *
+ * @param response The server response containing the message data.
+ * @param messageId The unique ID of the message being processed.
+ * @param startPos The position in the response to start searching for the message body.
+ * @return The position in the response after processing the current message.
+ */
 size_t IMAPClient::processMessage(const std::string &response, int messageId, size_t startPos) {
+    // locate the start of the message body using '{' character
     size_t bodyStart = response.find('{', startPos);
     size_t bodyEnd = response.find('}', bodyStart);
 
+    // if either '{' or '}' is not found, return the original start position to skip invalid responses
     if (bodyStart == std::string::npos || bodyEnd == std::string::npos) {
-        return startPos; // Skip invalid responses
+        return startPos;
     }
 
+    // extract the size of the message body enclosed in curly braces, e.g., {12345}
     int messageSize = std::stoi(response.substr(bodyStart + 1, bodyEnd - bodyStart - 1));
     size_t messageStart = bodyEnd + 3; // Skip "}\r\n"
 
+    // extract the message content from the response based on the size.
     std::string messageBody = response.substr(messageStart, messageSize);
 
     if (saveMessage(messageId, messageBody)) {
@@ -149,16 +195,34 @@ size_t IMAPClient::processMessage(const std::string &response, int messageId, si
     return messageStart + messageSize + 2; // Move to next position
 }
 
+/**
+ * @brief Fetches a specific message by its ID using the FETCH command.
+ *
+ * @param messageNumber The ID of the message to fetch.
+ * @return The complete server response containing the message data.
+ */
 std::string IMAPClient::fetchById(int messageNumber) {
     auto fetchCommand = IMAPCommandFactory::createFetchByIdCommand(messageNumber, config.onlyHeaders);
     sendCommand(*fetchCommand);
     return readWholeResponse();
 }
 
+/**
+ * @brief Saves a message to a file in the specified output directory.
+ *
+ * The file is named using the format `msg_<messageId>_<subject>`.
+ * The subject is extracted from the message headers and sanitized to remove invalid characters.
+ *
+ * @param messageId The unique ID of the message.
+ * @param messageBody The full content of the message, including headers and body.
+ * @return True if the message was saved successfully; otherwise, false.
+ */
 bool IMAPClient::saveMessage(int messageId, const std::string& messageBody) const {
+    // locate the end of the headers section, marked by a blank line
     size_t headersEnd = messageBody.find("\r\n\r\n");
     std::string headers = messageBody.substr(0, headersEnd);
 
+    // extract and decode the subject from the header
     std::string subject = extractAndDecodeSubject(headers);
     subject = validateSubject(subject);
     std::replace(subject.begin(), subject.end(), ' ', '_');
@@ -179,6 +243,9 @@ bool IMAPClient::saveMessage(int messageId, const std::string& messageBody) cons
     }
 }
 
+/**
+ * @brief Sends the LOGOUT command and disconnects from the server.
+ */
 void IMAPClient::logout() {
     auto logoutCommand = IMAPCommandFactory::createLogoutCommand();
     sendCommand(*logoutCommand);
@@ -187,6 +254,10 @@ void IMAPClient::logout() {
     strategy->disconnect();
 }
 
+/**
+ * @brief Sends an IMAP command using the current connection strategy.
+ * @param command The IMAP command to send.
+ */
 void IMAPClient::sendCommand(const IMAPCommand& command) {
     generateNextTag();
     lastCommand = command.getType();
@@ -195,10 +266,24 @@ void IMAPClient::sendCommand(const IMAPCommand& command) {
     strategy->sendCommand(cmdStr);
 }
 
+/**
+ * @brief Reads a single response line from the server.
+ * @return The response line as a string.
+ */
 std::string IMAPClient::readResponse() const {
     return strategy->readResponse();
 }
 
+/**
+ * @brief Reads the complete response from the server until an OK, NO, or BAD response is found.
+ *
+ * This method collects all lines from the server until a final status response is received.
+ * It handles responses that span multiple lines.
+ *
+ * @return The full response as a string.
+ * @throws IMAPNoResponseException if a NO response is received.
+ * @throws IMAPBadResponseException if a BAD response is received.
+ */
 std::string IMAPClient::readWholeResponse() {
     bool response_found = false;
     std::string lastMessage;
@@ -225,6 +310,9 @@ std::string IMAPClient::readWholeResponse() {
     return finalMessage;
 }
 
+/**
+ * @brief Finds the position of an "OK" response based on the last command sent.
+ */
 size_t IMAPClient::findOk(const std::string& response) const {
     size_t idx;
 
@@ -251,6 +339,9 @@ size_t IMAPClient::findOk(const std::string& response) const {
     return idx;
 }
 
+/**
+ * @brief Finds the position of a "NO" response based on the last command sent.
+ */
 size_t IMAPClient::findNo(const std::string& response) const {
     size_t idx;
 
@@ -267,6 +358,9 @@ size_t IMAPClient::findNo(const std::string& response) const {
     return idx;
 }
 
+/**
+ * @brief Finds the position of a "BAD" response based on the last command sent.
+ */
 size_t IMAPClient::findBad(const std::string& response) const {
     size_t idx;
 
@@ -283,6 +377,9 @@ size_t IMAPClient::findBad(const std::string& response) const {
     return idx;
 }
 
+/**
+ * @brief Determines the response type (OK, NO, BAD) based on the server's response.
+ */
 IMAPResponseType IMAPClient::findResponseType(const std::string& response) const {
     if (findOk(response) != std::string::npos) {
         return IMAPResponseType::OK;
@@ -294,14 +391,25 @@ IMAPResponseType IMAPClient::findResponseType(const std::string& response) const
     return IMAPResponseType::UNKNOWN;
 }
 
+/**
+ * @brief Decodes a base64-encoded string.
+ *
+ * This function uses OpenSSL to decode a base64 string and return the decoded data.
+ * @param encoded The base64 encoded string.
+ * @return The decoded string.
+ */
 std::string IMAPClient::decodeBase64(const std::string &encoded) {
     BIO *bio, *b64;
     char buffer[1024];
     std::string decoded;
+
+    // set up a memory BIO to read the base64 data
     bio = BIO_new_mem_buf(encoded.data(), encoded.size());
     b64 = BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // disable newlines
     bio = BIO_push(b64, bio);
+
+    // read decoded data into buffer
     int decodedLength;
     while ((decodedLength = BIO_read(bio, buffer, sizeof(buffer))) > 0) {
         decoded.append(buffer, decodedLength);
@@ -309,9 +417,17 @@ std::string IMAPClient::decodeBase64(const std::string &encoded) {
     BIO_free_all(bio);
     return decoded;
 }
+
+/**
+ * @brief Decodes a quoted-printable encoded string.
+ *
+ * @param encoded The quoted-printable encoded string.
+ * @return The decoded string.
+ */
 std::string IMAPClient::decodeQuotedPrintable(const std::string &encoded) {
     std::ostringstream decoded;
     for (size_t i = 0; i < encoded.size(); ++i) {
+        // check for "=XX" pattern representing hex-encoded characters
         if (encoded[i] == '=' && i + 2 < encoded.size()) {
             std::string hex = encoded.substr(i + 1, 2);
             char decodedChar = static_cast<char>(std::stoi(hex, nullptr, 16));
@@ -323,9 +439,19 @@ std::string IMAPClient::decodeQuotedPrintable(const std::string &encoded) {
     }
     return decoded.str();
 }
+
+/**
+ * @brief Extracts and decodes the subject line from email headers.
+ *
+ * Handles both base64 and quoted-printable encoded subjects.
+ * @param headers The email headers.
+ * @return The decoded subject or "no_subject" if not found.
+ */
 std::string IMAPClient::extractAndDecodeSubject(const std::string &headers) {
     std::regex encodedSubjectRegex(R"(Subject:\s=\?([A-Za-z0-9-]+)\?(B|Q)\?([A-Za-z0-9+/=]+)\?=)", std::regex::icase);
     std::smatch match;
+
+    // check if the subject is encoded
     if (std::regex_search(headers, match, encodedSubjectRegex)) {
         std::string charset = match[1].str();
         std::string encoding = match[2].str();
@@ -336,6 +462,8 @@ std::string IMAPClient::extractAndDecodeSubject(const std::string &headers) {
             return decodeQuotedPrintable(encodedSubject);
         }
     }
+
+    // extract plain text subject if not encoded
     std::regex plainSubjectRegex(R"(Subject:\s(.+))", std::regex::icase);
     if (std::regex_search(headers, match, plainSubjectRegex)) {
         return match[1].str();
@@ -343,6 +471,11 @@ std::string IMAPClient::extractAndDecodeSubject(const std::string &headers) {
     return "no_subject";
 }
 
+/**
+ * @brief Validates and sanitizes the subject to be used as a filename.
+ *
+ * Removes any characters that are not allowed in filenames.
+ */
 std::string IMAPClient::validateSubject(const std::string &subject) {
     std::string cleanSubject;
     for (char c : subject) {

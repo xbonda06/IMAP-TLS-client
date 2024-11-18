@@ -12,14 +12,20 @@
 #include <netdb.h>
 #include <unistd.h>
 
+/**
+ * @brief Implements a strategy for establishing an SSL/TLS connection with the IMAP server.
+ *
+ * The SSLConnectionStrategy class handles establishing a secure connection to the IMAP server,
+ * sending commands, and reading responses over SSL/TLS.
+ */
 class SSLConnectionStrategy : public ConnectionStrategy {
 private:
-    SSL* ssl;
-    int sockfd;
-    std::string server;
-    int port;
-    std::string certFile;
-    std::string certDir;
+    SSL* ssl;               ///< Pointer to the SSL connection object.
+    int sockfd;             ///< Socket file descriptor.
+    std::string server;     ///< The IMAP server address.
+    int port;               ///< The server port
+    std::string certFile;   ///< Path to the SSL certificate file (optional).
+    std::string certDir;    ///< Directory containing SSL certificates (optional).
 
 public:
     SSLConnectionStrategy(const std::string& server, int port, const std::string& certFile = "", const std::string& certDir = "")

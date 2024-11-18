@@ -8,6 +8,9 @@
 #include "IMAPCommand.h"
 #include <string>
 
+/**
+ * @brief Represents the IMAP FETCH command for retrieving all emails.
+ */
 class FetchCommand : public IMAPCommand {
     bool onlyHeaders;
 

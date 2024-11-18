@@ -8,6 +8,9 @@
 #include "IMAPCommand.h"
 #include <string>
 
+/**
+ * @brief A class representing the IMAP FETCH command for fetching emails by ID.
+ */
 class FetchByIdCommand : public IMAPCommand {
     int messageId;
     bool onlyHeaders;

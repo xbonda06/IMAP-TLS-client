@@ -14,7 +14,9 @@
 #define FETCH 4
 #define LOGOUT 5
 
-// abstract class for commands
+/**
+ * @brief Abstract base class for all IMAP commands.
+ */
 class IMAPCommand {
 public:
     virtual std::string generate() const = 0;

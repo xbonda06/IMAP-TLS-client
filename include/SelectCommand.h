@@ -8,6 +8,9 @@
 #include "IMAPClient.h"
 #include <string>
 
+/**
+ * @brief Represents the IMAP SELECT command.
+ */
 class SelectCommand : public IMAPCommand {
 public:
     explicit SelectCommand(const std::string& mailbox) : mailbox(mailbox) {}
