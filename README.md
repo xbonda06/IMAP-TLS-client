@@ -4,7 +4,7 @@
 # IMAP Client (`imapcl`)
 
 ## Author
-- **Name**: Ivan Ivanov
+- **Name**: Andii Bondarenko
 - **Login**: xbonda06
 - **Date**: 18.11.2024
 
