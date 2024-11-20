@@ -1,5 +1,6 @@
 # IMAP-TLS-client
-3BIT project (VUT FIT). The imapcl program, which allows reading electronic mail using the IMAP4rev1 protocol (RFC 3501).
+3BIT (VUT FIT) project, which is the part of the ISA course (Network Applications and Network
+Administration). The imapcl program, which allows reading electronic mail using the IMAP4rev1 protocol (RFC 3501).
 
 # IMAP Client (`imapcl`)
 
